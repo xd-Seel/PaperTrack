@@ -7,6 +7,53 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+  import {
+    getAuth, GoogleAuthProvider, signInWithPopup, signOut as fbSignOut, onAuthStateChanged,
+    createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile
+  } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCnHiTWbrlwYmbRZNvVwzlEx2i3IC8_gXA",
+    authDomain: "papertrack-93402.firebaseapp.com",
+    projectId: "papertrack-93402",
+    storageBucket: "papertrack-93402.firebasestorage.app",
+    messagingSenderId: "103922597059",
+    appId: "1:103922597059:web:7b91f74d17804d7ce13676",
+    measurementId: "G-9YC8JHYE6P"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const googleProvider = new GoogleAuthProvider();
+
+  function toUserObj(u) {
+    return { name: u.displayName || u.email.split('@')[0], email: u.email, picture: u.photoURL, sub: u.uid };
+  }
+
+  window._fbSignInGoogle = () => signInWithPopup(auth, googleProvider)
+    .then(r => window._onFirebaseSignIn(toUserObj(r.user)))
+    .catch(err => { if (err.code !== 'auth/popup-closed-by-user') window._onFirebaseSignInError(err); });
+
+  window._fbSignInEmail = (email, password) => signInWithEmailAndPassword(auth, email, password)
+    .then(r => window._onFirebaseSignIn(toUserObj(r.user)))
+    .catch(err => window._onFirebaseSignInError(err));
+
+  window._fbCreateAccount = (name, email, password) =>
+    createUserWithEmailAndPassword(auth, email, password)
+      .then(async r => {
+        await updateProfile(r.user, { displayName: name });
+        window._onFirebaseSignIn({ name, email: r.user.email, picture: null, sub: r.user.uid });
+      })
+      .catch(err => window._onFirebaseSignInError(err));
+
+  window._fbSignOut = () => fbSignOut(auth);
+
+  onAuthStateChanged(auth, user => {
+    if (user) window._onFirebaseSignIn(toUserObj(user));
+  });
+</script>
 <style>
   :root {
     --bg: #0d0e11;
@@ -572,6 +619,224 @@
     margin-left:6px;
     vertical-align:middle;
   }
+
+  /* ── AVATAR / PROFILE ── */
+  .avatar {
+    width:34px; height:34px;
+    border-radius:50%;
+    background:var(--surface2);
+    border:1px solid var(--border2);
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--sans); font-size:13px; font-weight:600;
+    color:var(--text2);
+    flex-shrink:0;
+    text-transform:uppercase;
+    letter-spacing:0.05em;
+  }
+  .profile-section {
+    padding:14px 16px;
+    border-top:1px solid var(--border);
+    display:flex; align-items:center; gap:10px;
+    cursor:pointer;
+    transition:background 0.15s;
+    margin-top:auto;
+  }
+  .profile-section:hover { background:var(--surface2); }
+  .profile-info { flex:1; min-width:0; }
+  .profile-name { font-size:12px; font-weight:500; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .profile-sub { font-family:var(--mono); font-size:10px; color:var(--text3); }
+
+  /* ── SUBJECT CATALOG ── */
+  .subject-catalog-grid {
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(150px,1fr));
+    gap:10px;
+    margin-bottom:24px;
+  }
+  .subject-card {
+    padding:14px;
+    border:2px solid var(--border);
+    border-radius:var(--radius);
+    cursor:pointer;
+    transition:all 0.15s;
+    user-select:none;
+    position:relative;
+  }
+  .subject-card:hover { border-color:var(--border2); background:rgba(255,255,255,0.02); }
+  .subject-card.selected { background:var(--surface2); }
+  .s-dot { width:10px; height:10px; border-radius:50%; margin-bottom:10px; }
+  .s-name { font-size:13px; font-weight:500; color:var(--text); }
+  .s-board { font-family:var(--mono); font-size:10px; color:var(--text3); margin-top:3px; }
+  .s-check {
+    position:absolute; top:10px; right:10px;
+    width:18px; height:18px; border-radius:50%;
+    border:2px solid var(--border2);
+    display:flex; align-items:center; justify-content:center;
+    font-size:10px;
+    transition:all 0.15s;
+    color:transparent;
+  }
+  .subject-card.selected .s-check { background:var(--current-accent); border-color:var(--current-accent); color:var(--bg); }
+  .s-impl-badge {
+    font-family:var(--mono); font-size:9px;
+    padding:2px 6px; border-radius:10px;
+    background:var(--surface2); color:var(--text3);
+    border:1px solid var(--border);
+    margin-top:6px; display:inline-block;
+  }
+  .subject-card.selected .s-impl-badge.live { background:rgba(105,219,124,0.1); color:var(--green); border-color:rgba(105,219,124,0.3); }
+
+  /* ── ONBOARDING ── */
+  .onboarding-overlay {
+    display:none;
+    position:fixed; inset:0;
+    background:var(--bg);
+    z-index:2000;
+    align-items:center; justify-content:center;
+    overflow-y:auto;
+  }
+  .onboarding-overlay.open { display:flex; }
+  .onboarding-box { max-width:680px; width:90%; padding:48px 0; }
+  .onboarding-eyebrow {
+    font-family:var(--mono); font-size:11px; letter-spacing:0.12em;
+    text-transform:uppercase; color:var(--text3); margin-bottom:12px;
+  }
+  .onboarding-title { font-family:var(--serif); font-size:44px; letter-spacing:-0.5px; color:var(--text); line-height:1; margin-bottom:10px; }
+  .onboarding-sub { color:var(--text2); font-size:14px; margin-bottom:32px; line-height:1.6; }
+
+  /* ── SETTINGS VIEW ── */
+  .settings-section { margin-bottom:36px; }
+  .settings-section-title {
+    font-family:var(--mono); font-size:11px; letter-spacing:0.1em;
+    text-transform:uppercase; color:var(--text3);
+    margin-bottom:16px; padding-bottom:10px;
+    border-bottom:1px solid var(--border);
+  }
+  .settings-row {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:13px 0; border-bottom:1px solid var(--border);
+  }
+  .settings-row:last-child { border-bottom:none; }
+  .settings-row-left { flex:1; }
+  .settings-row-label { font-size:13px; font-weight:500; }
+  .settings-row-sub { font-size:11px; color:var(--text3); font-family:var(--mono); margin-top:3px; }
+  .profile-input {
+    width:200px !important;
+    font-size:13px !important;
+    padding:8px 10px !important;
+  }
+  .avatar img {
+    width:100%; height:100%;
+    border-radius:50%;
+    object-fit:cover;
+    display:block;
+  }
+  .sidebar-signout {
+    background:none; border:none;
+    color:var(--text3); cursor:pointer;
+    padding:5px; border-radius:4px;
+    display:none; align-items:center; justify-content:center;
+    flex-shrink:0;
+    transition:color 0.15s, background 0.15s;
+  }
+  .sidebar-signout:hover { color:var(--red); background:rgba(255,107,107,0.1); }
+  .google-acct-card {
+    display:flex; align-items:center; gap:12px;
+    padding:14px 16px;
+    background:var(--surface2); border:1px solid var(--border);
+    border-radius:var(--radius);
+  }
+  .google-acct-card img {
+    width:40px; height:40px; border-radius:50%; object-fit:cover; flex-shrink:0;
+  }
+  .google-acct-info { flex:1; min-width:0; }
+  .google-acct-name { font-size:13px; font-weight:500; }
+  .google-acct-email { font-family:var(--mono); font-size:11px; color:var(--text3); margin-top:2px; }
+
+  /* ── LOGIN OVERLAY ── */
+  .login-overlay {
+    display:none; position:fixed; inset:0;
+    background:var(--bg); z-index:3000;
+    align-items:center; justify-content:center; overflow-y:auto;
+  }
+  .login-overlay.open { display:flex; }
+  .login-box { max-width:420px; width:90%; padding:56px 0; text-align:center; }
+  .login-eyebrow { font-family:var(--mono); font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:var(--text3); margin-bottom:14px; }
+  .login-logo { font-family:var(--serif); font-size:44px; letter-spacing:-0.5px; color:var(--text); margin-bottom:8px; line-height:1; }
+  .login-sub { color:var(--text2); font-size:13px; margin-bottom:36px; line-height:1.8; }
+  .login-box { max-width:400px !important; }
+  .login-form { display:flex; flex-direction:column; gap:10px; margin-bottom:20px; text-align:left; }
+  .login-input {
+    width:100%; background:var(--surface2); border:1px solid var(--border);
+    border-radius:var(--radius-sm); color:var(--text);
+    font-family:var(--sans); font-size:13px; padding:11px 14px;
+    outline:none; transition:border-color 0.15s;
+  }
+  .login-input:focus { border-color:var(--accent-p); box-shadow:0 0 0 2px var(--accent-p-dim); }
+  .login-input::placeholder { color:var(--text3); }
+  .login-btn-primary {
+    width:100%; padding:12px; background:var(--accent-p); color:#000;
+    font-family:var(--sans); font-size:13px; font-weight:600;
+    border:none; border-radius:var(--radius-sm); cursor:pointer;
+    transition:opacity 0.15s;
+  }
+  .login-btn-primary:hover { opacity:0.88; }
+  .login-btn-primary:disabled { opacity:0.5; cursor:not-allowed; }
+  .login-divider {
+    display:flex; align-items:center; gap:12px;
+    color:var(--text3); font-family:var(--mono); font-size:10px;
+    letter-spacing:0.1em; text-transform:uppercase; margin-bottom:14px;
+  }
+  .login-divider::before, .login-divider::after {
+    content:''; flex:1; height:1px; background:var(--border);
+  }
+  .login-google-btn {
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    width:100%; padding:11px;
+    background:transparent; border:1px solid var(--border2);
+    border-radius:var(--radius-sm); color:var(--text2);
+    font-family:var(--sans); font-size:13px; font-weight:500;
+    cursor:pointer; transition:border-color 0.15s, color 0.15s, background 0.15s;
+  }
+  .login-google-btn:hover { border-color:var(--text2); color:var(--text); background:var(--surface2); }
+  .login-switch {
+    margin-top:18px; font-family:var(--mono); font-size:11px; color:var(--text3);
+  }
+  .login-switch button {
+    background:none; border:none; color:var(--accent-p); cursor:pointer;
+    font-family:var(--mono); font-size:11px; padding:0; text-decoration:underline;
+  }
+  .login-error {
+    font-family:var(--mono); font-size:11px; color:var(--red);
+    background:rgba(255,107,107,0.08); border:1px solid rgba(255,107,107,0.2);
+    border-radius:var(--radius-sm); padding:8px 12px; display:none;
+  }
+
+  /* ── SIDEBAR ACCOUNT ── */
+  .sidebar-acct {
+    padding:12px 14px 14px;
+    border-top:1px solid var(--border);
+    margin-top:auto;
+    display:flex; align-items:center; gap:10px;
+    cursor:pointer; transition:background 0.15s;
+  }
+  .sidebar-acct:hover { background:var(--surface2); }
+  .sidebar-acct-info { flex:1; min-width:0; }
+  .sidebar-acct-name { font-size:12px; font-weight:500; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sidebar-acct-sub { font-family:var(--mono); font-size:10px; color:var(--text3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:1px; }
+  .sidebar-acct-signout { background:none; border:none; color:var(--text3); cursor:pointer; padding:5px; border-radius:4px; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:color 0.15s, background 0.15s; }
+  .sidebar-acct-signout:hover { color:var(--red); background:rgba(255,107,107,0.1); }
+  .sidebar-signin-prompt { padding:12px 14px 14px; border-top:1px solid var(--border); margin-top:auto; }
+  .sidebar-signin-label { font-family:var(--mono); font-size:9px; letter-spacing:0.1em; text-transform:uppercase; color:var(--text3); margin-bottom:8px; }
+  .sidebar-signin-btn {
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    width:100%; padding:9px 12px;
+    background:transparent; border:1px solid var(--border2);
+    border-radius:var(--radius-sm);
+    color:var(--text2); font-family:var(--sans); font-size:12px; font-weight:500;
+    cursor:pointer; transition:all 0.15s;
+  }
+  .sidebar-signin-btn:hover { border-color:var(--text2); color:var(--text); background:var(--surface2); }
 </style>
 </head>
 <body>
@@ -596,25 +861,15 @@
       </button>
 
       <div class="nav-label">History</div>
-      <button class="nav-btn" data-view="hist-maths" onclick="gotoView('hist-maths',this)">
-        <span class="subject-dot dot-m"></span> Maths
-      </button>
-      <button class="nav-btn" data-view="hist-physics" onclick="gotoView('hist-physics',this)">
-        <span class="subject-dot dot-p"></span> Physics
-      </button>
-      <button class="nav-btn" data-view="hist-cs" onclick="gotoView('hist-cs',this)">
-        <span class="subject-dot dot-cs"></span> Comp Sci
-      </button>
+      <div id="history-nav"></div>
 
-      <div class="nav-label">Data</div>
-      <button class="nav-btn" onclick="exportData()">
-        <span class="icon">↓</span> Export
-      </button>
-      <button class="nav-btn" onclick="document.getElementById('import-file').click()">
-        <span class="icon">↑</span> Import
+      <div class="nav-label">App</div>
+      <button class="nav-btn" data-view="settings" onclick="gotoView('settings',this)">
+        <span class="icon">⚙</span> Settings
       </button>
       <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
     </nav>
+    <div id="sidebar-user-section"></div>
   </aside>
 
   <!-- ── MAIN CONTENT ── -->
@@ -644,9 +899,6 @@
             <label>Subject</label>
             <select id="sel-subject" onchange="onSubjectChange()">
               <option value="">— choose —</option>
-              <option value="maths">Mathematics (Edexcel)</option>
-              <option value="physics">Physics (OCR A)</option>
-              <option value="cs">Computer Science (OCR A)</option>
             </select>
           </div>
           <div class="selector-group">
@@ -719,10 +971,11 @@
       </div>
     </div>
 
-    <!-- ── HISTORY VIEWS (shared template rendered by JS) ── -->
+    <!-- ── HISTORY VIEWS (rendered by JS, includes dynamic subjects) ── -->
     <div id="view-hist-maths" class="view"></div>
     <div id="view-hist-physics" class="view"></div>
     <div id="view-hist-cs" class="view"></div>
+    <div id="dynamic-hist-views"></div>
 
     <!-- ── ANALYTICS VIEW ── -->
     <div id="view-analytics" class="view">
@@ -733,11 +986,76 @@
       <div id="analytics-content"></div>
     </div>
 
+    <!-- ── SETTINGS VIEW ── -->
+    <div id="view-settings" class="view">
+      <div class="page-header">
+        <div class="page-title">Settings</div>
+        <div class="page-subtitle">Manage your subjects, profile, and data.</div>
+      </div>
+      <div id="settings-content"></div>
+    </div>
+
   </main>
 </div>
 
 <!-- ── TOAST CONTAINER ── -->
 <div class="toast-wrap" id="toasts"></div>
+
+<!-- ── LOGIN OVERLAY ── -->
+<div class="login-overlay" id="login-overlay">
+  <div class="login-box">
+    <div class="login-eyebrow">PaperTrack — A-Level Logger</div>
+    <div class="login-logo" id="login-title">Welcome.</div>
+    <div class="login-sub" id="login-subtitle">Sign in to keep your data synced.</div>
+
+    <!-- Sign in panel -->
+    <div id="login-panel-signin">
+      <div class="login-form">
+        <div class="login-error" id="login-err-signin"></div>
+        <input class="login-input" id="login-email" type="email" placeholder="Email" autocomplete="email">
+        <input class="login-input" id="login-password" type="password" placeholder="Password" autocomplete="current-password">
+        <button class="login-btn-primary" id="login-submit-signin" onclick="loginWithEmail()">Sign in</button>
+      </div>
+      <div class="login-divider">or</div>
+      <button class="login-google-btn" onclick="signInWithGoogle()">
+        <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-3.59-13.46-8.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+        Continue with Google
+      </button>
+      <div class="login-switch">No account? <button onclick="showLoginPanel('signup')">Create one</button></div>
+    </div>
+
+    <!-- Sign up panel -->
+    <div id="login-panel-signup" style="display:none">
+      <div class="login-form">
+        <div class="login-error" id="login-err-signup"></div>
+        <input class="login-input" id="signup-name" type="text" placeholder="Your name" autocomplete="name">
+        <input class="login-input" id="signup-email" type="email" placeholder="Email" autocomplete="email">
+        <input class="login-input" id="signup-password" type="password" placeholder="Password (min 6 chars)" autocomplete="new-password">
+        <button class="login-btn-primary" id="login-submit-signup" onclick="createAccount()">Create account</button>
+      </div>
+      <div class="login-divider">or</div>
+      <button class="login-google-btn" onclick="signInWithGoogle()">
+        <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-3.59-13.46-8.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+        Continue with Google
+      </button>
+      <div class="login-switch">Already have an account? <button onclick="showLoginPanel('signin')">Sign in</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── ONBOARDING OVERLAY ── -->
+<div class="onboarding-overlay" id="onboarding">
+  <div class="onboarding-box">
+    <div class="onboarding-eyebrow">PaperTrack — A-Level Logger</div>
+    <div class="onboarding-title">What do you study?</div>
+    <div class="onboarding-sub">Select your A-Level subjects to personalise your dashboard.<br>You can change these anytime in Settings.</div>
+    <div class="subject-catalog-grid" id="onboarding-grid"></div>
+    <div class="flex" style="gap:12px;align-items:center">
+      <button class="btn btn-primary" onclick="finishOnboarding()">Start Tracking →</button>
+      <span id="onboarding-count" class="text-muted text-sm text-mono"></span>
+    </div>
+  </div>
+</div>
 
 <!-- ── REVIEW MODAL ── -->
 <div class="modal-overlay" id="review-modal">
@@ -835,19 +1153,39 @@ const PAPERS = {
         title: 'Modelling Physics',
         pmtPath: 'a-level-physics/ocr-paper-1/',
         totalMarks: 100,
+        yearQuestions: {
+          // ── 2023 ── Source: OCR H557/01 Mark Scheme June 2023
+          // Note: 0-mark parts (diagrams/show-that) stripped; total of markable parts = 91
+          2023: [
+            { n:'A', topic:'Section A — Multiple Choice',
+              subtopic:'Vectors / Torque / Newton\'s Laws / Materials / Impulse / Gravitation / Momentum / Thermal Physics / Gas Laws / Orbits / Oscillations / Cosmology',
+              parts:[{l:'Q1-15',marks:15}] },
+            { n:16, topic:'Mechanics — Forces & Motion', subtopic:'Kinematics / Newton\'s Laws / Stopping distance',
+              parts:[{l:'a i',marks:2},{l:'a ii',marks:1},{l:'a iii',marks:3},{l:'b i',marks:2},{l:'b ii',marks:2}] },
+            { n:17, topic:'Mechanics — Circular Motion', subtopic:'Circular motion / Tension / Angular velocity / Projectile motion',
+              parts:[{l:'a i',marks:1},{l:'a ii',marks:2},{l:'a iii',marks:3},{l:'a iv',marks:2},{l:'b i',marks:2},{l:'b ii',marks:3},{l:'b iii',marks:3}] },
+            { n:18, topic:'Practical Skills', subtopic:'Experimental uncertainties / g by free fall / g by inclined plane',
+              parts:[{l:'',marks:6}] },
+            { n:19, topic:'Mechanics — Forces & Motion', subtopic:'Centre of mass / Moments / Power',
+              parts:[{l:'b i',marks:2},{l:'b ii',marks:1}] },
+            { n:20, topic:'Thermal Physics', subtopic:'Ideal gas equation / Density / Archimedes\' principle / Thrust',
+              parts:[{l:'b ii',marks:2},{l:'b iii',marks:2},{l:'b iv',marks:2},{l:'c',marks:2},{l:'d',marks:2}] },
+            { n:21, topic:'Oscillations', subtopic:'Simple harmonic motion / Spring constant / Graphs / Uncertainty',
+              parts:[{l:'a i',marks:2},{l:'a iii',marks:2},{l:'b i',marks:2},{l:'b ii',marks:2},{l:'b iii',marks:3},{l:'c',marks:4}] },
+            { n:22, topic:'Astrophysics', subtopic:'Stellar evolution / H-R diagram / Spectroscopy',
+              parts:[{l:'',marks:6}] },
+            { n:23, topic:'Astrophysics', subtopic:'Stellar parallax / Percentage uncertainty / Kinetic theory / Gravitational potential / Solar wind',
+              parts:[{l:'a i',marks:1},{l:'a ii',marks:2},{l:'b i',marks:2},{l:'b ii',marks:1},{l:'b iii',marks:3},{l:'b iv',marks:1}] },
+          ],
+        },
         questions: [
-          // Section A MCQ (represented as individual Q's)
           { n:'A', topic:'Section A — Multiple Choice', subtopic:'Various topics', parts:[{l:'Q1-15',marks:15}] },
-          // Section B
-          { n:'1', topic:'Measurements & Uncertainties', subtopic:'Percentage uncertainty / SI units', parts:[{l:'a',marks:2},{l:'b',marks:3}] },
-          { n:'2', topic:'Particles & Radiation', subtopic:'Atomic structure / Photoelectric effect', parts:[{l:'a',marks:3},{l:'b',marks:4},{l:'c',marks:2}] },
-          { n:'3', topic:'Waves', subtopic:'Superposition & Interference', parts:[{l:'a',marks:3},{l:'b',marks:4}] },
-          { n:'4', topic:'Mechanics — Motion', subtopic:'Newton\'s Laws & SUVAT', parts:[{l:'a',marks:4},{l:'b',marks:3},{l:'c',marks:3}] },
-          { n:'5', topic:'Mechanics — Energy', subtopic:'Work, Energy & Power', parts:[{l:'a',marks:3},{l:'b',marks:5}] },
-          { n:'6', topic:'Electricity', subtopic:'Kirchhoff\'s Laws & Circuits', parts:[{l:'a',marks:4},{l:'b',marks:3},{l:'c',marks:4}] },
-          { n:'7', topic:'Circular Motion', subtopic:'Angular velocity / Centripetal force', parts:[{l:'a',marks:3},{l:'b',marks:4},{l:'c',marks:3}] },
-          { n:'8', topic:'Oscillations', subtopic:'SHM', parts:[{l:'a',marks:4},{l:'b',marks:3},{l:'c',marks:5}] },
-          { n:'9', topic:'Thermal Physics', subtopic:'Ideal gases & Thermal energy', parts:[{l:'a',marks:3},{l:'b',marks:4},{l:'c',marks:3},{l:'d',marks:4}] },
+          { n:'1', topic:'Mechanics — Forces & Motion', subtopic:'Kinematics / Newton\'s Laws / SUVAT', parts:[{l:'a',marks:4},{l:'b',marks:3},{l:'c',marks:3}] },
+          { n:'2', topic:'Mechanics — Circular Motion', subtopic:'Angular velocity / Centripetal force', parts:[{l:'a',marks:3},{l:'b',marks:4},{l:'c',marks:3}] },
+          { n:'3', topic:'Oscillations', subtopic:'SHM / Spring constant / Graphs', parts:[{l:'a',marks:4},{l:'b',marks:3},{l:'c',marks:5}] },
+          { n:'4', topic:'Thermal Physics', subtopic:'Ideal gases / Archimedes / Density', parts:[{l:'a',marks:3},{l:'b',marks:4},{l:'c',marks:3}] },
+          { n:'5', topic:'Astrophysics', subtopic:'Stellar evolution / H-R diagram / Parallax', parts:[{l:'a',marks:4},{l:'b',marks:3},{l:'c',marks:5}] },
+          { n:'6', topic:'Practical Skills', subtopic:'Uncertainties / Experimental design', parts:[{l:'',marks:6}] },
         ]
       },
       'Paper 2': {
@@ -1368,25 +1706,33 @@ function saveDB(db) {
 function gotoView(name, btn) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('view-' + name).classList.add('active');
+  const viewEl = document.getElementById('view-' + name);
+  if (viewEl) viewEl.classList.add('active');
   if (btn) btn.classList.add('active');
 
-  // Set accent based on view
-  if (name.includes('maths') || currentSubject==='maths') setAccent('m');
-  else if (name.includes('physics') || currentSubject==='physics') setAccent('p');
-  else if (name.includes('cs') || currentSubject==='cs') setAccent('cs');
+  if (name === 'settings') { setAccent('m'); renderSettings(); return; }
+
+  const subKey = name.startsWith('hist-') ? name.replace('hist-','') : (currentSubject || '');
+  const cat = SUBJECT_CATALOG?.[subKey];
+  if (cat) {
+    document.documentElement.style.setProperty('--current-accent', cat.color);
+    document.documentElement.style.setProperty('--current-dim', cat.color + '1f');
+  } else if (subKey === 'maths' || name.includes('maths')) setAccent('m');
+  else if (subKey === 'physics' || name.includes('physics')) setAccent('p');
+  else if (subKey === 'cs' || name.includes('cs')) setAccent('cs');
   else setAccent('m');
 
   if (name === 'home') renderDashboard();
   else if (name === 'analytics') renderAnalytics();
+  else if (name === 'log') populateSubjectSelector();
   else if (name.startsWith('hist-')) renderHistory(name.replace('hist-',''));
 }
 
 function setAccent(sub) {
   const map = { m: ['--accent-m','--accent-m-dim'], p: ['--accent-p','--accent-p-dim'], cs: ['--accent-cs','--accent-cs-dim'] };
-  const [a, d] = map[sub] || map.m;
-  document.documentElement.style.setProperty('--current-accent', `var(${a})`);
-  document.documentElement.style.setProperty('--current-dim', `var(${d})`);
+  const pair = map[sub] || map.m;
+  document.documentElement.style.setProperty('--current-accent', `var(${pair[0]})`);
+  document.documentElement.style.setProperty('--current-dim', `var(${pair[1]})`);
 }
 
 // ═══════════════════════════════════════════════════
@@ -1396,21 +1742,34 @@ function onSubjectChange() {
   const sub = document.getElementById('sel-subject').value;
   const paperSel = document.getElementById('sel-paper');
   const yearSel = document.getElementById('sel-year');
+  const msg = document.getElementById('paper-load-msg');
 
   paperSel.innerHTML = '<option value="">— choose paper —</option>';
   yearSel.innerHTML = '<option value="">— choose year —</option>';
   paperSel.disabled = !sub;
   yearSel.disabled = true;
+  if (msg) msg.textContent = '';
 
   if (!sub) return;
+
+  const cat = SUBJECT_CATALOG[sub];
+  if (cat) {
+    document.documentElement.style.setProperty('--current-accent', cat.color);
+    document.documentElement.style.setProperty('--current-dim', cat.color + '1f');
+  } else setAccent('m');
+
   const subDef = PAPERS[sub];
+  if (!subDef) {
+    paperSel.disabled = true;
+    if (msg) msg.innerHTML = `Paper data for <strong>${cat?.name||sub}</strong> is coming soon. <a href="#" style="color:var(--current-accent);font-family:var(--mono);font-size:11px" onclick="event.preventDefault();showPMTPromptHint()">Generate with Claude →</a>`;
+    return;
+  }
   Object.keys(subDef.papers).forEach(pk => {
     const opt = document.createElement('option');
     opt.value = pk;
     opt.textContent = `${pk} — ${subDef.papers[pk].title}`;
     paperSel.appendChild(opt);
   });
-  setAccent(sub === 'maths' ? 'm' : sub === 'physics' ? 'p' : 'cs');
 }
 
 function onPaperChange() {
@@ -1802,21 +2161,25 @@ function renderDashboard() {
     return;
   }
 
-  const subjects = ['maths','physics','cs'];
-  let html = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px">';
+  const subjects = getSelectedSubjects();
+  const cols = Math.min(subjects.length, 3);
+  let html = `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:16px;margin-bottom:24px">`;
   subjects.forEach(sub => {
     const recs = db.records.filter(r => r.subject === sub);
     const avg = recs.length > 0 ? Math.round(recs.reduce((s,r) => s + (r.totalAvail>0 ? r.totalScored/r.totalAvail*100 : 0),0)/recs.length) : null;
-    const subDef = PAPERS[sub];
-    const accentVar = sub==='maths'?'--accent-m':sub==='physics'?'--accent-p':'--accent-cs';
+    const cat = SUBJECT_CATALOG[sub] || PAPERS[sub];
+    if (!cat) return;
+    const color = cat.color || '#888';
+    const board = cat.board || '';
+    const name = cat.name || sub;
     html += `
-      <div class="card" style="border-color:var(${accentVar},var(--border));cursor:pointer" onclick="gotoView('hist-${sub}',document.querySelector('[data-view=hist-${sub}]'))">
+      <div class="card" style="border-color:${color}33;cursor:pointer" onclick="gotoView('hist-${sub}',document.querySelector('[data-view=hist-${sub}]'))">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-          <span style="width:10px;height:10px;border-radius:50%;background:var(${accentVar});flex-shrink:0;display:inline-block"></span>
-          <div style="font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3)">${subDef.board}</div>
+          <span style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0;display:inline-block"></span>
+          <div style="font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3)">${board}</div>
         </div>
-        <div style="font-family:var(--serif);font-size:22px;margin-bottom:4px">${subDef.name}</div>
-        <div style="font-family:var(--mono);font-size:28px;color:var(${accentVar})">${avg !== null ? avg+'%' : '—'}</div>
+        <div style="font-family:var(--serif);font-size:22px;margin-bottom:4px">${name}</div>
+        <div style="font-family:var(--mono);font-size:28px;color:${color}">${avg !== null ? avg+'%' : '—'}</div>
         <div style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-top:4px">avg across ${recs.length} paper${recs.length!==1?'s':''}</div>
       </div>`;
   });
@@ -1826,14 +2189,15 @@ function renderDashboard() {
   html += '<div class="card"><div class="card-title">Recent Papers</div><div class="paper-list">';
   const recent = [...db.records].sort((a,b) => b.id-a.id).slice(0,6);
   recent.forEach(r => {
-    const sub = PAPERS[r.subject];
-    const accentVar = r.subject==='maths'?'--accent-m':r.subject==='physics'?'--accent-p':'--accent-cs';
+    const rCat = SUBJECT_CATALOG[r.subject] || PAPERS[r.subject];
+    const rColor = rCat?.color || '#888';
+    const rName = rCat?.name || r.subject;
     const pct = r.totalAvail > 0 ? Math.round(r.totalScored/r.totalAvail*100) : 0;
     html += `
       <div class="paper-entry" onclick="openReview(${r.id})">
-        <span class="paper-entry-badge" style="background:rgba(var(--current),0.1)">${r.year}</span>
-        <div class="paper-entry-name">${sub.name} — ${r.paperKey}<small>${new Date(r.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</small></div>
-        <div class="paper-entry-score" style="color:var(${accentVar})">${pct}%</div>
+        <span class="paper-entry-badge" style="background:${rColor}1f;color:${rColor}">${r.year}</span>
+        <div class="paper-entry-name">${rName} — ${r.paperKey}<small>${new Date(r.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</small></div>
+        <div class="paper-entry-score" style="color:${rColor}">${pct}%</div>
         <div class="paper-entry-grade">${r.grade || '—'}</div>
       </div>`;
   });
@@ -1848,20 +2212,23 @@ function renderDashboard() {
 function renderHistory(sub) {
   const db = getDB();
   const el = document.getElementById('view-hist-' + sub);
-  const subDef = PAPERS[sub];
+  const cat = SUBJECT_CATALOG[sub] || PAPERS[sub];
+  const subName = cat?.name || sub;
+  const subBoard = cat?.board || '';
+  const subColor = cat?.color || '#888';
   const recs = db.records.filter(r => r.subject===sub).sort((a,b) => b.year-a.year || a.paperKey.localeCompare(b.paperKey));
-  const accentVar = sub==='maths'?'--accent-m':sub==='physics'?'--accent-p':'--accent-cs';
 
-  setAccent(sub==='maths'?'m':sub==='physics'?'p':'cs');
+  document.documentElement.style.setProperty('--current-accent', subColor);
+  document.documentElement.style.setProperty('--current-dim', subColor + '1f');
 
   let html = `
     <div class="page-header">
-      <div class="page-title" style="color:var(${accentVar})">${subDef.name}</div>
-      <div class="page-subtitle">${subDef.board} · ${recs.length} paper${recs.length!==1?'s':''} logged</div>
+      <div class="page-title" style="color:${subColor}">${subName}</div>
+      <div class="page-subtitle">${subBoard} · ${recs.length} paper${recs.length!==1?'s':''} logged</div>
     </div>`;
 
   if (recs.length === 0) {
-    html += `<div class="empty-state"><div class="icon">📁</div><p>No ${subDef.name} papers logged yet.</p></div>`;
+    html += `<div class="empty-state"><div class="icon">📁</div><p>No ${subName} papers logged yet.</p></div>`;
     el.innerHTML = html;
     return;
   }
@@ -1870,12 +2237,13 @@ function renderHistory(sub) {
   recs.forEach(r => {
     const pct = r.totalAvail > 0 ? Math.round(r.totalScored/r.totalAvail*100) : 0;
     const gradeColor = r.grade==='A*'||r.grade==='A' ? 'var(--green)' : r.grade==='B'||r.grade==='C' ? 'var(--orange)' : r.grade==='U'?'var(--red)':'var(--text2)';
+    const paperTitle = PAPERS[r.subject]?.papers[r.paperKey]?.title || '';
     html += `
       <div class="paper-entry" onclick="openReview(${r.id})">
-        <span class="paper-entry-badge">${r.year}</span>
-        <div class="paper-entry-name">${r.paperKey} — ${PAPERS[r.subject].papers[r.paperKey]?.title || ''}<small>Logged ${new Date(r.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</small></div>
+        <span class="paper-entry-badge" style="background:${subColor}1f;color:${subColor}">${r.year}</span>
+        <div class="paper-entry-name">${r.paperKey}${paperTitle ? ' — '+paperTitle : ''}<small>Logged ${new Date(r.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</small></div>
         <div style="font-family:var(--mono);font-size:13px;color:var(--text3)">${r.totalScored}/${r.totalAvail}</div>
-        <div class="paper-entry-score" style="color:var(${accentVar})">${pct}%</div>
+        <div class="paper-entry-score" style="color:${subColor}">${pct}%</div>
         <div class="paper-entry-grade" style="color:${gradeColor}">${r.grade || '—'}</div>
         <button class="paper-entry-delete" title="Delete" onclick="event.stopPropagation();deletePaper(${r.id})">✕</button>
       </div>`;
@@ -1996,16 +2364,18 @@ function renderAnalytics() {
 
   let html = `<div class="analytics-grid">`;
 
+  const analyticsSubjects = getSelectedSubjects();
+
   // Weak topics
   html += `<div class="card full"><div class="card-title">Topic Performance — Weakest First</div>`;
-  const subjects = ['maths','physics','cs'];
-
-  subjects.forEach(sub => {
+  analyticsSubjects.forEach(sub => {
     const subTopics = topics.filter(t => t.subject === sub);
     if (subTopics.length === 0) return;
-    const accentVar = sub==='maths'?'--accent-m':sub==='physics'?'--accent-p':'--accent-cs';
+    const cat = SUBJECT_CATALOG[sub] || PAPERS[sub];
+    const color = cat?.color || '#888';
+    const subName = cat?.name || sub;
     html += `<div style="margin-bottom:20px">
-      <div style="font-family:var(--mono);font-size:11px;color:var(${accentVar});text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">${PAPERS[sub].name}</div>`;
+      <div style="font-family:var(--mono);font-size:11px;color:${color};text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">${subName}</div>`;
     subTopics.forEach(t => {
       const barClass = t.pct >= 70 ? 'bar-good' : t.pct >= 40 ? 'bar-mid' : 'bar-bad';
       html += `<div class="topic-bar-wrap">
@@ -2018,11 +2388,12 @@ function renderAnalytics() {
   html += `</div>`;
 
   // Per-subject progression
-  subjects.forEach(sub => {
+  analyticsSubjects.forEach(sub => {
     const recs = db.records.filter(r => r.subject===sub).sort((a,b) => a.year-b.year || a.paperKey.localeCompare(b.paperKey));
     if (recs.length < 2) return;
-    const accentVar = sub==='maths'?'--accent-m':sub==='physics'?'--accent-p':'--accent-cs';
-    html += `<div class="card"><div class="card-title">${PAPERS[sub].name} — Score Trend</div>
+    const cat = SUBJECT_CATALOG[sub] || PAPERS[sub];
+    const subName = cat?.name || sub;
+    html += `<div class="card"><div class="card-title">${subName} — Score Trend</div>
       <div class="prog-chart"><canvas id="chart-${sub}" width="400" height="180"></canvas></div>
     </div>`;
   });
@@ -2031,7 +2402,7 @@ function renderAnalytics() {
   el.innerHTML = html;
 
   // Draw canvases
-  subjects.forEach(sub => {
+  analyticsSubjects.forEach(sub => {
     const recs = db.records.filter(r => r.subject===sub).sort((a,b) => a.year-b.year || a.paperKey.localeCompare(b.paperKey));
     if (recs.length < 2) return;
     const canvas = document.getElementById('chart-' + sub);
@@ -2181,9 +2552,508 @@ function importData(event) {
 }
 
 // ═══════════════════════════════════════════════════
+//  SUBJECT CATALOG — all supported A-level subjects
+// ═══════════════════════════════════════════════════
+const SUBJECT_CATALOG = {
+  maths:         { name:'Mathematics',       board:'Edexcel',    color:'#f5c542', implemented:true },
+  further_maths: { name:'Further Maths',     board:'Edexcel',    color:'#c792ea', implemented:false },
+  physics:       { name:'Physics',           board:'OCR A',      color:'#4fc3f7', implemented:true },
+  chemistry:     { name:'Chemistry',         board:'OCR A',      color:'#ffb86c', implemented:false },
+  biology:       { name:'Biology',           board:'OCR A',      color:'#69db7c', implemented:false },
+  cs:            { name:'Computer Science',  board:'OCR A',      color:'#a8e6a3', implemented:true },
+  english_lit:   { name:'English Lit.',      board:'AQA',        color:'#ff79c6', implemented:false },
+  history:       { name:'History',           board:'AQA',        color:'#bd93f9', implemented:false },
+  geography:     { name:'Geography',         board:'AQA',        color:'#8be9fd', implemented:false },
+  economics:     { name:'Economics',         board:'Edexcel',    color:'#f1fa8c', implemented:false },
+  psychology:    { name:'Psychology',        board:'AQA',        color:'#ff6e6e', implemented:false },
+  business:      { name:'Business',          board:'Edexcel',    color:'#ffa94d', implemented:false },
+};
+
+// ═══════════════════════════════════════════════════
+//  SETTINGS STORAGE
+// ═══════════════════════════════════════════════════
+function getSettings() {
+  try { return JSON.parse(localStorage.getItem('papertrack_settings') || '{}'); } catch { return {}; }
+}
+function saveSettings(s) {
+  localStorage.setItem('papertrack_settings', JSON.stringify(s));
+}
+function getSelectedSubjects() {
+  const s = getSettings();
+  // Fall back to all implemented subjects for users who haven't gone through onboarding
+  if (!s.selectedSubjects) return Object.keys(SUBJECT_CATALOG).filter(k => SUBJECT_CATALOG[k].implemented);
+  return s.selectedSubjects;
+}
+
+// ═══════════════════════════════════════════════════
+//  DYNAMIC SIDEBAR NAV
+// ═══════════════════════════════════════════════════
+function renderHistoryNav() {
+  const container = document.getElementById('history-nav');
+  const selected = getSelectedSubjects();
+  container.innerHTML = '';
+
+  // Ensure view divs exist for all selected subjects (beyond the 3 static ones)
+  const dynContainer = document.getElementById('dynamic-hist-views');
+  dynContainer.innerHTML = '';
+  selected.forEach(key => {
+    if (!['maths','physics','cs'].includes(key)) {
+      const div = document.createElement('div');
+      div.id = 'view-hist-' + key;
+      div.className = 'view';
+      dynContainer.appendChild(div);
+    }
+  });
+
+  if (selected.length === 0) {
+    container.innerHTML = '<div style="padding:6px 10px;font-family:var(--mono);font-size:10px;color:var(--text3)">No subjects selected</div>';
+    return;
+  }
+
+  selected.forEach(key => {
+    const cat = SUBJECT_CATALOG[key] || PAPERS[key];
+    if (!cat) return;
+    const name = cat.name || key;
+    const color = cat.color || '#888';
+    const btn = document.createElement('button');
+    btn.className = 'nav-btn';
+    btn.dataset.view = 'hist-' + key;
+    btn.onclick = function() { gotoView('hist-' + key, this); };
+    btn.innerHTML = `<span class="subject-dot" style="background:${color};width:8px;height:8px;border-radius:50%;flex-shrink:0"></span> ${name}`;
+    container.appendChild(btn);
+  });
+}
+
+// ═══════════════════════════════════════════════════
+//  PROFILE / AVATAR  +  FIREBASE AUTH
+// ═══════════════════════════════════════════════════
+
+function _getInitials(name) {
+  return (name || '?').trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?';
+}
+
+function _esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function updateProfileUI() {
+  const s = getSettings();
+  const user = s.googleUser;
+  const section = document.getElementById('sidebar-user-section');
+  if (!section) return;
+
+  if (user) {
+    const initials = _getInitials(user.name);
+    const avatarInner = user.picture
+      ? `<img src="${_esc(user.picture)}" referrerpolicy="no-referrer" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover;display:block" onerror="this.style.display='none';this.parentNode.dataset.initials='${initials}';this.parentNode.setAttribute('data-fallback','1')">`
+      : '';
+    section.innerHTML = `
+      <div class="sidebar-acct" onclick="gotoView('settings',null)" title="Account &amp; Settings">
+        <div class="avatar" id="sidebar-avatar" style="${!user.picture ? `font-size:13px;display:flex;align-items:center;justify-content:center` : ''}">${avatarInner}${!user.picture ? initials : ''}</div>
+        <div class="sidebar-acct-info">
+          <div class="sidebar-acct-name">${_esc(user.name || 'User')}</div>
+          <div class="sidebar-acct-sub">${_esc(user.email || '')}</div>
+        </div>
+        <button class="sidebar-acct-signout" title="Sign out" onclick="event.stopPropagation();signOut()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+        </button>
+      </div>`;
+  } else {
+    section.innerHTML = `
+      <div class="sidebar-signin-prompt">
+        <div class="sidebar-signin-label">Account</div>
+        <button class="sidebar-signin-btn" onclick="showLoginOverlay()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+          Sign in with Google
+        </button>
+      </div>`;
+  }
+}
+
+// Called by Firebase module on successful sign-in or auth state restore
+window._onFirebaseSignIn = function(userData) {
+  const s = getSettings();
+  const alreadySignedIn = !!s.googleUser;
+  s.googleUser = userData;
+  saveSettings(s);
+  dismissLoginOverlay();
+  updateProfileUI();
+  const settingsEl = document.getElementById('view-settings');
+  if (settingsEl?.classList.contains('active')) renderSettings();
+  if (!alreadySignedIn) {
+    toast(`Welcome, ${userData.name}!`, 'success');
+    checkOnboarding();
+  }
+};
+
+window._onFirebaseSignInError = function(err) {
+  console.error('Sign-in error', err);
+  const friendly = {
+    'auth/unauthorized-domain': 'This domain isn\'t authorised — add it in Firebase Console → Authentication → Authorised domains.',
+    'auth/operation-not-allowed': 'This sign-in method isn\'t enabled in Firebase Console.',
+    'auth/popup-blocked': 'Popup was blocked — allow popups for this page and try again.',
+    'auth/user-not-found': 'No account found with that email.',
+    'auth/wrong-password': 'Incorrect password.',
+    'auth/invalid-credential': 'Incorrect email or password.',
+    'auth/email-already-in-use': 'An account with that email already exists.',
+    'auth/weak-password': 'Password must be at least 6 characters.',
+    'auth/invalid-email': 'Please enter a valid email address.',
+  };
+  const msg = friendly[err?.code] || `Sign-in failed: ${err?.code || err?.message || 'unknown error'}`;
+  // show inline if a panel is visible, otherwise toast
+  const signinErr = document.getElementById('login-err-signin');
+  const signupErr = document.getElementById('login-err-signup');
+  const activeErr = (document.getElementById('login-panel-signup')?.style.display !== 'none') ? signupErr : signinErr;
+  if (activeErr) { activeErr.textContent = msg; activeErr.style.display = 'block'; }
+  else toast(msg, 'error');
+};
+
+function showLoginPanel(panel) {
+  document.getElementById('login-panel-signin').style.display = panel === 'signin' ? '' : 'none';
+  document.getElementById('login-panel-signup').style.display = panel === 'signup' ? '' : 'none';
+  document.getElementById('login-title').textContent = panel === 'signup' ? 'Create account.' : 'Welcome.';
+  document.getElementById('login-subtitle').textContent = panel === 'signup'
+    ? 'Sign up to keep your data synced.' : 'Sign in to keep your data synced.';
+  document.getElementById('login-err-signin').style.display = 'none';
+  document.getElementById('login-err-signup').style.display = 'none';
+}
+
+function loginWithEmail() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const btn = document.getElementById('login-submit-signin');
+  if (!email || !password) return;
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  window._fbSignInEmail(email, password).finally(() => { btn.disabled = false; btn.textContent = 'Sign in'; });
+}
+
+function createAccount() {
+  const name = document.getElementById('signup-name').value.trim();
+  const email = document.getElementById('signup-email').value.trim();
+  const password = document.getElementById('signup-password').value;
+  const btn = document.getElementById('login-submit-signup');
+  if (!name || !email || !password) return;
+  btn.disabled = true; btn.textContent = 'Creating…';
+  window._fbCreateAccount(name, email, password).finally(() => { btn.disabled = false; btn.textContent = 'Create account'; });
+}
+
+function signInWithGoogle() {
+  if (window._fbSignInGoogle) window._fbSignInGoogle();
+  else toast('Auth not ready yet — please wait a moment.', 'error');
+}
+
+function signOut() {
+  const s = getSettings();
+  delete s.googleUser;
+  saveSettings(s);
+  if (window._fbSignOut) window._fbSignOut();
+  updateProfileUI();
+  const settingsEl = document.getElementById('view-settings');
+  if (settingsEl?.classList.contains('active')) renderSettings();
+  toast('Signed out.', 'info');
+}
+
+// ═══════════════════════════════════════════════════
+//  LOGIN OVERLAY
+// ═══════════════════════════════════════════════════
+
+function showLoginOverlay() {
+  const overlay = document.getElementById('login-overlay');
+  if (overlay) overlay.classList.add('open');
+}
+
+function dismissLoginOverlay() {
+  const overlay = document.getElementById('login-overlay');
+  if (overlay) overlay.classList.remove('open');
+}
+
+function checkLogin() {
+  const s = getSettings();
+  if (!s.googleUser) {
+    showLoginOverlay();
+  } else {
+    checkOnboarding();
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  ONBOARDING
+// ═══════════════════════════════════════════════════
+let _onboardingSelected = new Set();
+
+function renderOnboardingGrid() {
+  const grid = document.getElementById('onboarding-grid');
+  grid.innerHTML = '';
+  Object.entries(SUBJECT_CATALOG).forEach(([key, cat]) => {
+    const card = document.createElement('div');
+    card.className = 'subject-card' + (_onboardingSelected.has(key) ? ' selected' : '');
+    card.dataset.key = key;
+    card.onclick = () => toggleOnboardingSubject(key, card);
+    card.innerHTML = `
+      <div class="s-dot" style="background:${cat.color}"></div>
+      <div class="s-name">${cat.name}</div>
+      <div class="s-board">${cat.board}</div>
+      <span class="s-impl-badge${cat.implemented?' live':''}">
+        ${cat.implemented ? '✓ Full data' : 'Coming soon'}
+      </span>
+      <div class="s-check">✓</div>`;
+    grid.appendChild(card);
+  });
+  updateOnboardingCount();
+}
+
+function toggleOnboardingSubject(key, card) {
+  if (_onboardingSelected.has(key)) {
+    _onboardingSelected.delete(key);
+    card.classList.remove('selected');
+  } else {
+    _onboardingSelected.add(key);
+    card.classList.add('selected');
+  }
+  updateOnboardingCount();
+}
+
+function updateOnboardingCount() {
+  const n = _onboardingSelected.size;
+  document.getElementById('onboarding-count').textContent = n > 0 ? `${n} subject${n!==1?'s':''} selected` : 'Select at least one subject';
+}
+
+function finishOnboarding() {
+  if (_onboardingSelected.size === 0) {
+    toast('Please select at least one subject.', 'error');
+    return;
+  }
+  const s = getSettings();
+  s.selectedSubjects = Array.from(_onboardingSelected);
+  s.onboardingDone = true;
+  saveSettings(s);
+  document.getElementById('onboarding').classList.remove('open');
+  renderHistoryNav();
+  populateSubjectSelector();
+  renderDashboard();
+  toast('Subjects saved!', 'success');
+}
+
+function checkOnboarding() {
+  const s = getSettings();
+  if (!s.onboardingDone) {
+    // Pre-select implemented subjects
+    _onboardingSelected = new Set(Object.keys(SUBJECT_CATALOG).filter(k => SUBJECT_CATALOG[k].implemented));
+    renderOnboardingGrid();
+    document.getElementById('onboarding').classList.add('open');
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  SETTINGS VIEW
+// ═══════════════════════════════════════════════════
+let _settingsSelected = new Set();
+
+function renderSettings() {
+  const s = getSettings();
+  const selected = getSelectedSubjects();
+  _settingsSelected = new Set(selected);
+  const el = document.getElementById('settings-content');
+  const user = s.googleUser;
+
+  // ── Account section ──────────────────────────────────
+  let html = `<div class="settings-section"><div class="settings-section-title">Account</div>`;
+  if (user) {
+    const initials = _getInitials(user.name);
+    const avatarHtml = user.picture
+      ? `<img src="${_esc(user.picture)}" referrerpolicy="no-referrer" alt="" onerror="this.style.display='none'">`
+      : `<span style="font-size:14px;font-weight:600">${initials}</span>`;
+    html += `
+      <div class="google-acct-card">
+        <div class="avatar" style="width:48px;height:48px;font-size:15px">${avatarHtml}</div>
+        <div class="google-acct-info">
+          <div class="google-acct-name" style="font-size:14px">${_esc(user.name || 'User')}</div>
+          <div class="google-acct-email">${_esc(user.email || '')}</div>
+        </div>
+        <button class="btn btn-ghost" onclick="signOut()" style="flex-shrink:0">Sign out</button>
+      </div>`;
+  } else {
+    html += `
+      <div class="settings-row">
+        <div class="settings-row-left">
+          <div class="settings-row-label">Not signed in</div>
+          <div class="settings-row-sub">Sign in to keep your data synced across devices</div>
+        </div>
+        <button class="btn btn-ghost" onclick="showLoginOverlay()">Sign in</button>
+      </div>`;
+  }
+  html += `</div>`;
+
+  // ── Subjects ─────────────────────────────────────────
+  html += `
+    <div class="settings-section">
+      <div class="settings-section-title">My Subjects</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.6">
+        Only selected subjects appear on your dashboard and in navigation.
+        Papers already logged for hidden subjects are preserved.
+      </p>
+      <div class="subject-catalog-grid" id="settings-subject-grid"></div>
+      <button class="btn btn-primary" onclick="saveSubjectSettings()">Save Subjects</button>
+    </div>`;
+
+  // ── Data ─────────────────────────────────────────────
+  html += `
+    <div class="settings-section">
+      <div class="settings-section-title">Data</div>
+      <div class="settings-row">
+        <div class="settings-row-left">
+          <div class="settings-row-label">Export Data</div>
+          <div class="settings-row-sub">Download all logged papers as a JSON file</div>
+        </div>
+        <button class="btn btn-ghost" onclick="exportData()">↓ Export</button>
+      </div>
+      <div class="settings-row">
+        <div class="settings-row-left">
+          <div class="settings-row-label">Import Data</div>
+          <div class="settings-row-sub">Merge papers from a previous export</div>
+        </div>
+        <button class="btn btn-ghost" onclick="document.getElementById('import-file').click()">↑ Import</button>
+      </div>
+      <div class="settings-row">
+        <div class="settings-row-left">
+          <div class="settings-row-label">Reset All Data</div>
+          <div class="settings-row-sub">Permanently delete all logged papers</div>
+        </div>
+        <button class="btn btn-danger" onclick="resetAllData()">Reset</button>
+      </div>
+    </div>`;
+
+  el.innerHTML = html;
+  renderSettingsSubjectGrid();
+
+}
+
+function renderSettingsSubjectGrid() {
+  const grid = document.getElementById('settings-subject-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  Object.entries(SUBJECT_CATALOG).forEach(([key, cat]) => {
+    const card = document.createElement('div');
+    card.className = 'subject-card' + (_settingsSelected.has(key) ? ' selected' : '');
+    card.dataset.key = key;
+    card.onclick = () => {
+      if (_settingsSelected.has(key)) { _settingsSelected.delete(key); card.classList.remove('selected'); }
+      else { _settingsSelected.add(key); card.classList.add('selected'); }
+    };
+    card.innerHTML = `
+      <div class="s-dot" style="background:${cat.color}"></div>
+      <div class="s-name">${cat.name}</div>
+      <div class="s-board">${cat.board}</div>
+      <span class="s-impl-badge${cat.implemented?' live':''}">
+        ${cat.implemented ? '✓ Full data' : 'Coming soon'}
+      </span>
+      <div class="s-check">✓</div>`;
+    grid.appendChild(card);
+  });
+}
+
+
+function saveSubjectSettings() {
+  if (_settingsSelected.size === 0) {
+    toast('Select at least one subject.', 'error');
+    return;
+  }
+  const s = getSettings();
+  s.selectedSubjects = Array.from(_settingsSelected);
+  saveSettings(s);
+  renderHistoryNav();
+  populateSubjectSelector();
+  renderDashboard();
+  toast('Subjects updated!', 'success');
+}
+
+function resetAllData() {
+  if (!confirm('This will permanently delete all your logged paper records. This cannot be undone. Continue?')) return;
+  localStorage.removeItem('papertrack_v2');
+  toast('All data reset.', 'info');
+  renderDashboard();
+}
+
+// ═══════════════════════════════════════════════════
+//  DYNAMIC SUBJECT SELECTOR IN LOG PAPER
+// ═══════════════════════════════════════════════════
+function populateSubjectSelector() {
+  const sel = document.getElementById('sel-subject');
+  sel.innerHTML = '<option value="">— choose —</option>';
+  getSelectedSubjects().forEach(key => {
+    const cat = SUBJECT_CATALOG[key] || PAPERS[key];
+    if (!cat) return;
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = `${cat.name} (${cat.board})`;
+    sel.appendChild(opt);
+  });
+}
+
+// ═══════════════════════════════════════════════════
+//  PMT PROMPT HINT
+// ═══════════════════════════════════════════════════
+function showPMTPromptHint() {
+  document.getElementById('rm-title').textContent = 'Generate Paper Data with Claude';
+  document.getElementById('rm-content').innerHTML = `
+    <p style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.6">
+      Copy the prompt below into Claude in your VS Code chat window. Claude will fetch the mark scheme
+      from PMT and output the exact JavaScript structure to paste into this app.
+    </p>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;font-family:var(--mono);font-size:11px;color:var(--text2);white-space:pre-wrap;line-height:1.7;max-height:340px;overflow-y:auto;user-select:all" id="pmt-prompt-text">${getPMTPromptText().replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+    <div class="flex mt16" style="gap:8px">
+      <button class="btn btn-primary" onclick="navigator.clipboard.writeText(getPMTPromptText()).then(()=>toast('Prompt copied!','success'))">Copy Prompt</button>
+    </div>`;
+  document.getElementById('review-modal').classList.add('open');
+}
+
+function getPMTPromptText() {
+return `I need accurate past paper question data for PaperTrack.
+
+Subject: [e.g. Chemistry OCR A]
+Paper: [e.g. Paper 1 — Breadth in Chemistry]
+Year: [e.g. 2023]
+
+Step 1 — Fetch the mark scheme from PMT using WebFetch on the PDF viewer URL:
+  https://www.physicsandmathstutor.com/past-papers/a-level-chemistry/ocr-paper-1/
+  (Navigate to the correct subject/paper page and find the mark scheme PDF link)
+
+Step 2 — From the mark scheme, extract every question, part label, and mark allocation.
+  For each question identify: main topic (spec heading) and a short subtopic description.
+
+Step 3 — Output ONLY the following JavaScript snippet (no prose, no markdown fences):
+
+// [Subject] [Paper] [Year]
+[YEAR]: [
+  { n:1, topic:'Topic Name', subtopic:'Brief description',
+    parts:[{l:'a',marks:3},{l:'b i',marks:2},{l:'b ii',marks:4}] },
+  { n:2, topic:'Topic Name', subtopic:'Brief description',
+    parts:[{l:'',marks:5}] },
+],
+
+Rules:
+- Use {l:'',marks:N} for whole questions with no sub-part label
+- Part labels must exactly match the mark scheme (e.g. 'a', 'b i', 'b ii', 'c', 'd i')
+- Verify all marks sum to the correct paper total
+- Topic names should match the official specification headings
+- If the PDF cannot be fetched, ask me to paste the mark scheme text`;
+}
+
+// ═══════════════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════════════
+renderHistoryNav();
+updateProfileUI();
+populateSubjectSelector();
 renderDashboard();
+checkLogin();
 </script>
 </body>
 </html>
