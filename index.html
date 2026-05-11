@@ -1584,7 +1584,8 @@ const PAPERS = {
 // Years available per board
 const YEARS = {
   edexcel: [2024,2023,2022,2019,2018,2017],
-  ocr:     [2024,2023,2022,2021,2020,2019,2018,2017]
+  ocr:     [2024,2023,2022,2021,2020,2019,2018,2017],
+  aqa:     [2024,2023,2022,2019,2018,2017],
 };
 
 // Grade boundary data — verified from official exam board documents
@@ -1691,13 +1692,16 @@ let currentYear = null;
 let currentPaperDef = null;
 let allInputRefs = []; // flat list of inputs in order
 let currentBoundaries = null;
-let currentAccentVar = '--accent-m';
 
 function getDB() {
   return JSON.parse(localStorage.getItem('papertrack_v2') || '{"records":[]}');
 }
 function saveDB(db) {
-  localStorage.setItem('papertrack_v2', JSON.stringify(db));
+  try {
+    localStorage.setItem('papertrack_v2', JSON.stringify(db));
+  } catch {
+    toast('Could not save — storage may be full or unavailable.', 'error');
+  }
 }
 
 // ═══════════════════════════════════════════════════
@@ -1781,7 +1785,8 @@ function onPaperChange() {
   yearSel.disabled = !pk;
 
   if (!pk) return;
-  const board = PAPERS[sub].board.toLowerCase().startsWith('edexcel') ? 'edexcel' : 'ocr';
+  const _boardName = PAPERS[sub].board.toLowerCase();
+  const board = _boardName.startsWith('edexcel') ? 'edexcel' : _boardName.startsWith('aqa') ? 'aqa' : 'ocr';
   YEARS[board].forEach(y => {
     const opt = document.createElement('option');
     opt.value = y;
@@ -1797,6 +1802,11 @@ function loadPaper() {
   const msg = document.getElementById('paper-load-msg');
 
   if (!sub || !pk || !yr) { msg.textContent = 'Please select all three fields.'; return; }
+
+  // Warn if user has started entering marks for a different paper
+  if (allInputRefs.length > 0 && allInputRefs.some(inp => inp.value !== '')) {
+    if (!confirm('You have unsaved marks. Load a new paper and discard them?')) return;
+  }
 
   // Check not already logged
   const db = getDB();
@@ -1817,7 +1827,11 @@ function loadPaper() {
   }
   currentBoundaries = null;
 
-  setAccent(sub === 'maths' ? 'm' : sub === 'physics' ? 'p' : 'cs');
+  const _loadCat = SUBJECT_CATALOG[sub];
+  if (_loadCat) {
+    document.documentElement.style.setProperty('--current-accent', _loadCat.color);
+    document.documentElement.style.setProperty('--current-dim', _loadCat.color + '1f');
+  } else setAccent('m');
 
   buildPaperForm();
   document.getElementById('log-step2').style.display = 'block';
@@ -1880,6 +1894,7 @@ function buildPaperForm() {
         `;
         tbody.appendChild(tr);
         const inp = tr.querySelector('input');
+        inp.dataset.inputIdx = allInputRefs.length;
         allInputRefs.push(inp);
         setupInput(inp, part.marks);
       });
@@ -1896,6 +1911,7 @@ function buildPaperForm() {
       `;
       tbody.appendChild(tr);
       const inp = tr.querySelector('input');
+      inp.dataset.inputIdx = allInputRefs.length;
       allInputRefs.push(inp);
       setupInput(inp, part.marks);
     }
@@ -1931,7 +1947,7 @@ function setupInput(inp, maxMarks) {
       inp.dispatchEvent(new Event('input'));
 
       // Try to auto-advance if this value could not be extended further
-      const idx = allInputRefs.indexOf(inp);
+      const idx = parseInt(inp.dataset.inputIdx);
       const curVal = parseInt(inp.value);
       // Advance if: typed 0 on a 0-max question, value is max, or value can't be extended
       const shouldAdvance = inp.value !== '' && (
@@ -1951,15 +1967,15 @@ function setupInput(inp, maxMarks) {
       // allow default tab behaviour
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      const idx = allInputRefs.indexOf(inp);
+      const idx = parseInt(inp.dataset.inputIdx);
       if (idx < allInputRefs.length - 1) allInputRefs[idx + 1].focus();
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
-      const idx = allInputRefs.indexOf(inp);
+      const idx = parseInt(inp.dataset.inputIdx);
       if (idx < allInputRefs.length - 1) allInputRefs[idx + 1].focus();
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      const idx = allInputRefs.indexOf(inp);
+      const idx = parseInt(inp.dataset.inputIdx);
       if (idx > 0) allInputRefs[idx - 1].focus();
     }
   });
@@ -2032,8 +2048,6 @@ async function fetchBoundaries() {
   const sub = currentSubject;
   const pk = currentPaperKey;
   const yr = currentYear;
-
-  await new Promise(r => setTimeout(r, 400)); // brief delay for feel
 
   const b = KNOWN_BOUNDARIES[sub]?.[pk]?.[yr];
   if (b) {
@@ -2196,9 +2210,9 @@ function renderDashboard() {
     html += `
       <div class="paper-entry" onclick="openReview(${r.id})">
         <span class="paper-entry-badge" style="background:${rColor}1f;color:${rColor}">${r.year}</span>
-        <div class="paper-entry-name">${rName} — ${r.paperKey}<small>${new Date(r.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</small></div>
+        <div class="paper-entry-name">${_esc(rName)} — ${_esc(r.paperKey)}<small>${new Date(r.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</small></div>
         <div class="paper-entry-score" style="color:${rColor}">${pct}%</div>
-        <div class="paper-entry-grade">${r.grade || '—'}</div>
+        <div class="paper-entry-grade">${_esc(r.grade || '—')}</div>
       </div>`;
   });
   html += '</div></div>';
@@ -2241,10 +2255,10 @@ function renderHistory(sub) {
     html += `
       <div class="paper-entry" onclick="openReview(${r.id})">
         <span class="paper-entry-badge" style="background:${subColor}1f;color:${subColor}">${r.year}</span>
-        <div class="paper-entry-name">${r.paperKey}${paperTitle ? ' — '+paperTitle : ''}<small>Logged ${new Date(r.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</small></div>
-        <div style="font-family:var(--mono);font-size:13px;color:var(--text3)">${r.totalScored}/${r.totalAvail}</div>
+        <div class="paper-entry-name">${_esc(r.paperKey)}${paperTitle ? ' — '+_esc(paperTitle) : ''}<small>Logged ${new Date(r.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</small></div>
+        <div style="font-family:var(--mono);font-size:13px;color:var(--text3)">${parseInt(r.totalScored)||0}/${parseInt(r.totalAvail)||0}</div>
         <div class="paper-entry-score" style="color:${subColor}">${pct}%</div>
-        <div class="paper-entry-grade" style="color:${gradeColor}">${r.grade || '—'}</div>
+        <div class="paper-entry-grade" style="color:${gradeColor}">${_esc(r.grade || '—')}</div>
         <button class="paper-entry-delete" title="Delete" onclick="event.stopPropagation();deletePaper(${r.id})">✕</button>
       </div>`;
   });
@@ -2277,7 +2291,8 @@ function openReview(id) {
 
   const sub = PAPERS[r.subject];
   const pct = r.totalAvail > 0 ? Math.round(r.totalScored/r.totalAvail*100) : 0;
-  const accentVar = r.subject==='maths'?'--accent-m':r.subject==='physics'?'--accent-p':'--accent-cs';
+  const _revCat = SUBJECT_CATALOG[r.subject];
+  const accentColor = _revCat?.color || (r.subject==='maths'?'#f5c542':r.subject==='physics'?'#4fc3f7':'#a8e6a3');
 
   // Group scores by question
   const byQ = {};
@@ -2296,7 +2311,7 @@ function openReview(id) {
     rowsHtml += `
       <tr>
         <td style="font-family:var(--mono);font-size:12px;color:var(--text2)">${qLabel}</td>
-        <td style="font-size:12px">${qData.topic}<br><small style="color:var(--text3);font-family:var(--mono)">${qData.subtopic}</small></td>
+        <td style="font-size:12px">${_esc(qData.topic)}<br><small style="color:var(--text3);font-family:var(--mono)">${_esc(qData.subtopic)}</small></td>
         <td style="font-family:var(--mono);font-size:13px;color:${color};text-align:center">${qData.scored}/${qData.total}</td>
       </tr>`;
   });
@@ -2310,11 +2325,11 @@ function openReview(id) {
     });
   }
 
-  document.getElementById('rm-title').innerHTML = `${sub.name} ${r.paperKey} <span style="color:var(${accentVar})">${r.year}</span>`;
+  document.getElementById('rm-title').innerHTML = `${sub.name} ${_esc(r.paperKey)} <span style="color:${accentColor}">${r.year}</span>`;
   document.getElementById('rm-content').innerHTML = `
     <div class="flex" style="gap:16px;margin-bottom:18px">
-      <div style="text-align:center"><div style="font-family:var(--serif);font-size:36px;color:var(${accentVar})">${pct}%</div><div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase">Score</div></div>
-      <div style="text-align:center"><div style="font-family:var(--serif);font-size:36px;color:var(${accentVar})">${r.grade||'—'}</div><div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase">Grade</div></div>
+      <div style="text-align:center"><div style="font-family:var(--serif);font-size:36px;color:${accentColor}">${pct}%</div><div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase">Score</div></div>
+      <div style="text-align:center"><div style="font-family:var(--serif);font-size:36px;color:${accentColor}">${_esc(r.grade||'—')}</div><div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase">Grade</div></div>
       <div style="text-align:center"><div style="font-family:var(--serif);font-size:36px;color:var(--text2)">${r.totalScored}/${r.totalAvail}</div><div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase">Marks</div></div>
     </div>
     ${boundaryHtml ? `<div class="grade-row" style="margin-bottom:16px">${boundaryHtml}</div>` : ''}
@@ -2331,6 +2346,12 @@ function closeModal() {
 }
 document.getElementById('review-modal').addEventListener('click', e => {
   if (e.target === document.getElementById('review-modal')) closeModal();
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (document.getElementById('review-modal').classList.contains('open')) { closeModal(); return; }
+  if (document.getElementById('login-overlay').classList.contains('open')) { dismissLoginOverlay(); return; }
+  if (document.getElementById('onboarding').classList.contains('open')) return; // onboarding must be completed
 });
 
 // ═══════════════════════════════════════════════════
@@ -3045,6 +3066,17 @@ Rules:
 - Topic names should match the official specification headings
 - If the PDF cannot be fetched, ask me to paste the mark scheme text`;
 }
+
+// ═══════════════════════════════════════════════════
+//  CANVAS RESIZE
+// ═══════════════════════════════════════════════════
+let _chartResizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(_chartResizeTimer);
+  _chartResizeTimer = setTimeout(() => {
+    if (document.getElementById('view-analytics')?.classList.contains('active')) renderAnalytics();
+  }, 250);
+});
 
 // ═══════════════════════════════════════════════════
 //  INIT
