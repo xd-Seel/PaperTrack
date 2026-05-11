@@ -362,6 +362,86 @@
   .q-row-header td { background: var(--surface2); }
   .q-row-header .q-num { color: var(--current-accent); font-weight: 500; font-size: 13px; }
 
+  /* ── TEMPLATE BUILDER ── */
+  .builder-tabs { display: flex; gap: 4px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 3px; }
+  .builder-tab {
+    background: transparent; border: none; color: var(--text2); font-family: var(--mono);
+    font-size: 11px; padding: 6px 12px; border-radius: 4px; cursor: pointer; transition: all 0.15s;
+    letter-spacing: 0.04em; text-transform: uppercase;
+  }
+  .builder-tab:hover { color: var(--text); }
+  .builder-tab.active { background: var(--current-dim); color: var(--current-accent); }
+  .builder-q {
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 12px 14px; margin-bottom: 10px; background: var(--surface2);
+  }
+  .builder-q-head {
+    display: flex; gap: 10px; align-items: center; margin-bottom: 8px; flex-wrap: wrap;
+  }
+  .builder-q-num {
+    font-family: var(--mono); font-size: 13px; color: var(--current-accent);
+    font-weight: 500; min-width: 36px;
+  }
+  .builder-input, .builder-select {
+    background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    font-family: var(--sans); font-size: 13px; padding: 6px 10px; border-radius: 4px;
+    outline: none; transition: border-color 0.15s;
+  }
+  .builder-input:focus, .builder-select:focus { border-color: var(--current-accent); }
+  .builder-input.mini { width: 60px; text-align: center; font-family: var(--mono); }
+  .builder-input.topic { flex: 1; min-width: 180px; }
+  .builder-q-actions { margin-left: auto; display: flex; gap: 6px; }
+  .builder-icon-btn {
+    background: transparent; border: 1px solid var(--border); color: var(--text2);
+    font-family: var(--mono); font-size: 11px; padding: 4px 10px; border-radius: 4px;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .builder-icon-btn:hover { color: var(--text); border-color: var(--border2); }
+  .builder-icon-btn.danger:hover { color: var(--red); border-color: var(--red); }
+  .builder-parts { margin-left: 24px; padding-left: 14px; border-left: 1px dashed var(--border); }
+  .builder-part-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+  .builder-part-label {
+    font-family: var(--mono); font-size: 11px; color: var(--text3); min-width: 56px;
+  }
+  .builder-sub-parts { margin-left: 24px; padding-left: 14px; border-left: 1px dashed var(--border); margin-top: 4px; }
+  .builder-paste {
+    width: 100%; min-height: 200px; background: var(--surface2); color: var(--text);
+    border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px;
+    font-family: var(--mono); font-size: 12px; line-height: 1.7; resize: vertical; outline: none;
+  }
+  .builder-paste:focus { border-color: var(--current-accent); }
+  .builder-summary {
+    font-family: var(--mono); font-size: 11px; color: var(--text2);
+    padding: 8px 12px; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 4px; min-height: 32px; display: flex; align-items: center;
+  }
+  .builder-summary.warn { color: var(--orange); border-color: var(--orange); }
+  .builder-summary.ok { color: var(--green); border-color: var(--green); }
+
+  /* ── TOPICS EDITOR (settings) ── */
+  .topics-editor-subj { margin-bottom: 18px; }
+  .topics-editor-head {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+    font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .topics-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .topic-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 999px;
+    padding: 4px 8px 4px 12px; font-size: 12px; color: var(--text);
+  }
+  .topic-chip button {
+    background: transparent; border: none; color: var(--text3); font-size: 14px;
+    cursor: pointer; padding: 0 4px; line-height: 1;
+  }
+  .topic-chip button:hover { color: var(--red); }
+  .topic-add-row { display: flex; gap: 6px; }
+  .topic-add-row input {
+    flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    font-family: var(--sans); font-size: 13px; padding: 6px 10px; border-radius: 4px; outline: none;
+  }
+  .topic-add-row input:focus { border-color: var(--current-accent); }
+
   /* ── SCORE SUMMARY ── */
   .score-summary {
     display: grid;
@@ -920,6 +1000,50 @@
         </div>
       </div>
 
+      <!-- Step 1b: Template Builder (shown when no question structure exists) -->
+      <div id="log-step1b" style="display:none">
+        <div id="builder-info-bar" class="paper-info-strip"></div>
+        <div class="card">
+          <div class="flex-between mb16">
+            <div class="card-title" style="margin:0">Build Paper Structure</div>
+            <div class="builder-tabs">
+              <button class="builder-tab active" data-tab="manual" onclick="switchBuilderTab('manual')">Manual</button>
+              <button class="builder-tab" data-tab="paste" onclick="switchBuilderTab('paste')">Paste mark scheme</button>
+            </div>
+          </div>
+          <p class="text-muted text-sm" style="margin-bottom:14px;line-height:1.6">
+            Define each question, its topic tag, and marks. Add parts (a, b, c…) and sub-parts (i, ii, iii…) as needed.
+            The template is saved against <strong style="color:var(--text)" id="builder-context-label">this paper</strong> and reusable for re-attempts.
+          </p>
+
+          <!-- Manual tab -->
+          <div id="builder-tab-manual">
+            <div id="builder-questions"></div>
+            <button class="btn btn-ghost" style="margin-top:12px" onclick="builderAddQuestion()">+ Add Question</button>
+          </div>
+
+          <!-- Paste tab -->
+          <div id="builder-tab-paste" style="display:none">
+            <div class="text-muted text-sm" style="margin-bottom:10px;line-height:1.6">
+              Paste one row per leaf (smallest markable part). Format: <code style="font-family:var(--mono);color:var(--text)">label, topic, marks</code>.
+              Labels: <code style="font-family:var(--mono);color:var(--text)">1</code>, <code style="font-family:var(--mono);color:var(--text)">2a</code>, <code style="font-family:var(--mono);color:var(--text)">3b i</code>, <code style="font-family:var(--mono);color:var(--text)">3b ii</code>. The <code style="font-family:var(--mono);color:var(--text)">Q</code> prefix is optional.
+            </div>
+            <textarea id="builder-paste" class="builder-paste" placeholder="1, Algebra & Functions, 5&#10;2a, Coordinate Geometry, 3&#10;2b, Coordinate Geometry, 4&#10;3a, Trigonometry, 3&#10;3b i, Trigonometry, 2&#10;3b ii, Trigonometry, 4"></textarea>
+            <div class="flex mt8" style="gap:8px;align-items:center">
+              <button class="btn btn-ghost" onclick="builderParsePaste()">Parse →</button>
+              <span id="builder-parse-msg" class="text-muted text-sm text-mono"></span>
+            </div>
+          </div>
+
+          <div class="builder-summary mt16" id="builder-summary"></div>
+
+          <div class="flex mt16" style="gap:8px;justify-content:flex-end">
+            <button class="btn btn-ghost" onclick="cancelBuilder()">Cancel</button>
+            <button class="btn btn-primary" onclick="saveBuilderTemplate()">Save Template & Enter Marks →</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Step 2: Entry Form -->
       <div id="log-step2" style="display:none">
         <div id="paper-info-bar" class="paper-info-strip"></div>
@@ -1085,63 +1209,9 @@ const PAPERS = {
     board: 'Edexcel',
     accent: 'accent-m',
     papers: {
-      'Paper 1': {
-        title: 'Pure Mathematics 1',
-        pmtPath: 'a-level-maths/edexcel-paper-1/',
-        totalMarks: 100,
-        questions: [
-          { n:1, topic:'Proof', subtopic:'Mathematical Proof', parts:[{l:'',marks:5}] },
-          { n:2, topic:'Algebra & Functions', subtopic:'Binomial Expansion', parts:[{l:'a',marks:3},{l:'b',marks:2}] },
-          { n:3, topic:'Coordinate Geometry', subtopic:'Circles', parts:[{l:'a',marks:3},{l:'b',marks:4}] },
-          { n:4, topic:'Sequences & Series', subtopic:'Arithmetic Series', parts:[{l:'a',marks:2},{l:'b',marks:3},{l:'c',marks:2}] },
-          { n:5, topic:'Trigonometry', subtopic:'Sine & Cosine Rule', parts:[{l:'a',marks:4},{l:'b',marks:3}] },
-          { n:6, topic:'Exponentials & Logs', subtopic:'Logarithms', parts:[{l:'a',marks:3},{l:'b',marks:4}] },
-          { n:7, topic:'Differentiation', subtopic:'Chain Rule / Product Rule', parts:[{l:'a',marks:3},{l:'b',marks:4},{l:'c',marks:3}] },
-          { n:8, topic:'Integration', subtopic:'Definite Integration', parts:[{l:'a',marks:4},{l:'b',marks:5}] },
-          { n:9, topic:'Numerical Methods', subtopic:'Iteration', parts:[{l:'a',marks:2},{l:'b',marks:3}] },
-          { n:10, topic:'Vectors', subtopic:'3D Vectors', parts:[{l:'a',marks:4},{l:'b',marks:3},{l:'c',marks:4}] },
-          { n:11, topic:'Algebra & Functions', subtopic:'Functions & Transformations', parts:[{l:'a',marks:3},{l:'b',marks:5},{l:'c',marks:4}] },
-          { n:12, topic:'Differentiation', subtopic:'Stationary Points / Optimisation', parts:[{l:'a',marks:4},{l:'b',marks:3},{l:'c',marks:4},{l:'d',marks:3}] },
-        ]
-      },
-      'Paper 2': {
-        title: 'Pure Mathematics 2',
-        pmtPath: 'a-level-maths/edexcel-paper-2/',
-        totalMarks: 100,
-        questions: [
-          { n:1, topic:'Algebra & Functions', subtopic:'Partial Fractions', parts:[{l:'',marks:4}] },
-          { n:2, topic:'Coordinate Geometry', subtopic:'Parametric Equations', parts:[{l:'a',marks:3},{l:'b',marks:3}] },
-          { n:3, topic:'Binomial Expansion', subtopic:'Binomial Theorem (non-integer)', parts:[{l:'a',marks:4},{l:'b',marks:3}] },
-          { n:4, topic:'Trigonometry', subtopic:'Compound Angle Formulae', parts:[{l:'a',marks:3},{l:'b',marks:4}] },
-          { n:5, topic:'Differentiation', subtopic:'Implicit Differentiation', parts:[{l:'a',marks:4},{l:'b',marks:3}] },
-          { n:6, topic:'Integration', subtopic:'Integration by Parts', parts:[{l:'a',marks:4},{l:'b',marks:4}] },
-          { n:7, topic:'Differential Equations', subtopic:'Separable Equations', parts:[{l:'a',marks:4},{l:'b',marks:3}] },
-          { n:8, topic:'Numerical Methods', subtopic:'Trapezium Rule / Newton-Raphson', parts:[{l:'a',marks:3},{l:'b',marks:4}] },
-          { n:9, topic:'Proof', subtopic:'Proof by Contradiction', parts:[{l:'a',marks:3},{l:'b',marks:4}] },
-          { n:10, topic:'Vectors', subtopic:'Lines in 3D', parts:[{l:'a',marks:4},{l:'b',marks:3},{l:'c',marks:4}] },
-          { n:11, topic:'Integration', subtopic:'Volumes of Revolution', parts:[{l:'a',marks:4},{l:'b',marks:5},{l:'c',marks:3}] },
-          { n:12, topic:'Trigonometry', subtopic:'R sin(θ+α) form / Trig Equations', parts:[{l:'a',marks:4},{l:'b',marks:3},{l:'c',marks:4},{l:'d',marks:3}] },
-        ]
-      },
-      'Paper 3': {
-        title: 'Statistics & Mechanics',
-        pmtPath: 'a-level-maths/edexcel-paper-3/',
-        totalMarks: 100,
-        questions: [
-          // Statistics section
-          { n:'1', topic:'Statistics — Data Analysis', subtopic:'Large Data Set', parts:[{l:'a',marks:3},{l:'b',marks:2}] },
-          { n:'2', topic:'Statistics — Probability', subtopic:'Conditional Probability', parts:[{l:'a',marks:3},{l:'b',marks:4}] },
-          { n:'3', topic:'Statistics — Distributions', subtopic:'Normal Distribution', parts:[{l:'a',marks:3},{l:'b',marks:4},{l:'c',marks:3}] },
-          { n:'4', topic:'Statistics — Hypothesis Testing', subtopic:'Binomial Hypothesis Test', parts:[{l:'a',marks:4},{l:'b',marks:5}] },
-          { n:'5', topic:'Statistics — Regression', subtopic:'Correlation & Regression', parts:[{l:'a',marks:3},{l:'b',marks:4}] },
-          // Mechanics section
-          { n:'6', topic:'Mechanics — Kinematics', subtopic:'SUVAT Equations', parts:[{l:'a',marks:3},{l:'b',marks:4}] },
-          { n:'7', topic:'Mechanics — Forces', subtopic:"Newton's Laws", parts:[{l:'a',marks:4},{l:'b',marks:3}] },
-          { n:'8', topic:'Mechanics — Moments', subtopic:'Moments & Equilibrium', parts:[{l:'a',marks:3},{l:'b',marks:4},{l:'c',marks:3}] },
-          { n:'9', topic:'Mechanics — Projectiles', subtopic:'Projectile Motion', parts:[{l:'a',marks:4},{l:'b',marks:5}] },
-          { n:'10', topic:'Mechanics — Variable Accel.', subtopic:'Integration & Differentiation in Mechanics', parts:[{l:'a',marks:4},{l:'b',marks:3},{l:'c',marks:4}] },
-        ]
-      }
+      'Paper 1': { title: 'Pure Mathematics 1', pmtPath: 'a-level-maths/edexcel-paper-1/', totalMarks: 100 },
+      'Paper 2': { title: 'Pure Mathematics 2', pmtPath: 'a-level-maths/edexcel-paper-2/', totalMarks: 100 },
+      'Paper 3': { title: 'Statistics & Mechanics', pmtPath: 'a-level-maths/edexcel-paper-3/', totalMarks: 100 },
     }
   },
   physics: {
@@ -1149,74 +1219,9 @@ const PAPERS = {
     board: 'OCR A',
     accent: 'accent-p',
     papers: {
-      'Paper 1': {
-        title: 'Modelling Physics',
-        pmtPath: 'a-level-physics/ocr-paper-1/',
-        totalMarks: 100,
-        yearQuestions: {
-          // ── 2023 ── Source: OCR H557/01 Mark Scheme June 2023
-          // Note: 0-mark parts (diagrams/show-that) stripped; total of markable parts = 91
-          2023: [
-            { n:'A', topic:'Section A — Multiple Choice',
-              subtopic:'Vectors / Torque / Newton\'s Laws / Materials / Impulse / Gravitation / Momentum / Thermal Physics / Gas Laws / Orbits / Oscillations / Cosmology',
-              parts:[{l:'Q1-15',marks:15}] },
-            { n:16, topic:'Mechanics — Forces & Motion', subtopic:'Kinematics / Newton\'s Laws / Stopping distance',
-              parts:[{l:'a i',marks:2},{l:'a ii',marks:1},{l:'a iii',marks:3},{l:'b i',marks:2},{l:'b ii',marks:2}] },
-            { n:17, topic:'Mechanics — Circular Motion', subtopic:'Circular motion / Tension / Angular velocity / Projectile motion',
-              parts:[{l:'a i',marks:1},{l:'a ii',marks:2},{l:'a iii',marks:3},{l:'a iv',marks:2},{l:'b i',marks:2},{l:'b ii',marks:3},{l:'b iii',marks:3}] },
-            { n:18, topic:'Practical Skills', subtopic:'Experimental uncertainties / g by free fall / g by inclined plane',
-              parts:[{l:'',marks:6}] },
-            { n:19, topic:'Mechanics — Forces & Motion', subtopic:'Centre of mass / Moments / Power',
-              parts:[{l:'b i',marks:2},{l:'b ii',marks:1}] },
-            { n:20, topic:'Thermal Physics', subtopic:'Ideal gas equation / Density / Archimedes\' principle / Thrust',
-              parts:[{l:'b ii',marks:2},{l:'b iii',marks:2},{l:'b iv',marks:2},{l:'c',marks:2},{l:'d',marks:2}] },
-            { n:21, topic:'Oscillations', subtopic:'Simple harmonic motion / Spring constant / Graphs / Uncertainty',
-              parts:[{l:'a i',marks:2},{l:'a iii',marks:2},{l:'b i',marks:2},{l:'b ii',marks:2},{l:'b iii',marks:3},{l:'c',marks:4}] },
-            { n:22, topic:'Astrophysics', subtopic:'Stellar evolution / H-R diagram / Spectroscopy',
-              parts:[{l:'',marks:6}] },
-            { n:23, topic:'Astrophysics', subtopic:'Stellar parallax / Percentage uncertainty / Kinetic theory / Gravitational potential / Solar wind',
-              parts:[{l:'a i',marks:1},{l:'a ii',marks:2},{l:'b i',marks:2},{l:'b ii',marks:1},{l:'b iii',marks:3},{l:'b iv',marks:1}] },
-          ],
-        },
-        questions: [
-          { n:'A', topic:'Section A — Multiple Choice', subtopic:'Various topics', parts:[{l:'Q1-15',marks:15}] },
-          { n:'1', topic:'Mechanics — Forces & Motion', subtopic:'Kinematics / Newton\'s Laws / SUVAT', parts:[{l:'a',marks:4},{l:'b',marks:3},{l:'c',marks:3}] },
-          { n:'2', topic:'Mechanics — Circular Motion', subtopic:'Angular velocity / Centripetal force', parts:[{l:'a',marks:3},{l:'b',marks:4},{l:'c',marks:3}] },
-          { n:'3', topic:'Oscillations', subtopic:'SHM / Spring constant / Graphs', parts:[{l:'a',marks:4},{l:'b',marks:3},{l:'c',marks:5}] },
-          { n:'4', topic:'Thermal Physics', subtopic:'Ideal gases / Archimedes / Density', parts:[{l:'a',marks:3},{l:'b',marks:4},{l:'c',marks:3}] },
-          { n:'5', topic:'Astrophysics', subtopic:'Stellar evolution / H-R diagram / Parallax', parts:[{l:'a',marks:4},{l:'b',marks:3},{l:'c',marks:5}] },
-          { n:'6', topic:'Practical Skills', subtopic:'Uncertainties / Experimental design', parts:[{l:'',marks:6}] },
-        ]
-      },
-      'Paper 2': {
-        title: 'Exploring Physics',
-        pmtPath: 'a-level-physics/ocr-paper-2/',
-        totalMarks: 100,
-        questions: [
-          { n:'A', topic:'Section A — Multiple Choice', subtopic:'Various topics', parts:[{l:'Q1-15',marks:15}] },
-          { n:'1', topic:'Gravitational Fields', subtopic:'Newton\'s Law of Gravitation / Orbits', parts:[{l:'a',marks:3},{l:'b',marks:4},{l:'c',marks:3}] },
-          { n:'2', topic:'Electric Fields', subtopic:'Coulomb\'s Law / Electric potential', parts:[{l:'a',marks:3},{l:'b',marks:4}] },
-          { n:'3', topic:'Capacitors', subtopic:'Charging/discharging / Energy stored', parts:[{l:'a',marks:4},{l:'b',marks:3},{l:'c',marks:4}] },
-          { n:'4', topic:'Magnetic Fields', subtopic:'Magnetic flux / Faraday\'s Law', parts:[{l:'a',marks:3},{l:'b',marks:5}] },
-          { n:'5', topic:'Nuclear Physics', subtopic:'Radioactive decay / Half-life', parts:[{l:'a',marks:4},{l:'b',marks:3},{l:'c',marks:3}] },
-          { n:'6', topic:'Medical Imaging', subtopic:'X-rays / Ultrasound / MRI', parts:[{l:'a',marks:3},{l:'b',marks:4}] },
-          { n:'7', topic:'Astrophysics', subtopic:'HR Diagram / Stellar evolution', parts:[{l:'a',marks:4},{l:'b',marks:3},{l:'c',marks:5}] },
-          { n:'8', topic:'Cosmology', subtopic:'Hubble\'s Law / Big Bang', parts:[{l:'a',marks:3},{l:'b',marks:4},{l:'c',marks:3},{l:'d',marks:4}] },
-        ]
-      },
-      'Paper 3': {
-        title: 'Unified Physics',
-        pmtPath: 'a-level-physics/ocr-paper-3/',
-        totalMarks: 70,
-        questions: [
-          { n:'1', topic:'Experimental Methods', subtopic:'Planning & Analysis of experiment', parts:[{l:'a',marks:4},{l:'b',marks:6},{l:'c',marks:4}] },
-          { n:'2', topic:'Data Analysis', subtopic:'Graphs / Uncertainty / Logarithms', parts:[{l:'a',marks:4},{l:'b',marks:3},{l:'c',marks:3}] },
-          { n:'3', topic:'Synoptic — Mechanics', subtopic:'Combined mechanics problem', parts:[{l:'a',marks:5},{l:'b',marks:4}] },
-          { n:'4', topic:'Synoptic — Fields', subtopic:'Combined fields problem', parts:[{l:'a',marks:4},{l:'b',marks:5},{l:'c',marks:3}] },
-          { n:'5', topic:'Synoptic — Waves/Quantum', subtopic:'Wave / Quantum synoptic', parts:[{l:'a',marks:5},{l:'b',marks:4},{l:'c',marks:3}] },
-          { n:'6', topic:'Extended Response', subtopic:'Long-form problem (any topic)', parts:[{l:'',marks:13}] },
-        ]
-      }
+      'Paper 1': { title: 'Modelling Physics', pmtPath: 'a-level-physics/ocr-paper-1/', totalMarks: 100 },
+      'Paper 2': { title: 'Exploring Physics', pmtPath: 'a-level-physics/ocr-paper-2/', totalMarks: 100 },
+      'Paper 3': { title: 'Unified Physics', pmtPath: 'a-level-physics/ocr-paper-3/', totalMarks: 70 },
     }
   },
   cs: {
@@ -1228,7 +1233,6 @@ const PAPERS = {
         title: 'Computer Systems (H446/01)',
         pmtPath: 'a-level-computer-science/ocr-paper-1/',
         totalMarks: 140,
-        // Direct PMT links per year
         pmtDirectLinks: {
           2017: 'https://www.physicsandmathstutor.com/pdf-pages/?pdf=https%3A%2F%2Fpmt.physicsandmathstutor.com%2Fdownload%2FComputer-Science%2FA-level%2FPast-Papers%2FOCR%2FPaper-1%2FJune%202017%20QP%20-%20Paper%201%20OCR%20Computer%20Science%20A-level.pdf',
           2018: 'https://www.physicsandmathstutor.com/pdf-pages/?pdf=https%3A%2F%2Fpmt.physicsandmathstutor.com%2Fdownload%2FComputer-Science%2FA-level%2FPast-Papers%2FOCR%2FPaper-1%2FJune%202018%20QP%20-%20Paper%201%20OCR%20Computer%20Science%20A-level.pdf',
@@ -1239,30 +1243,14 @@ const PAPERS = {
           2023: 'https://www.physicsandmathstutor.com/pdf-pages/?pdf=https%3A%2F%2Fpmt.physicsandmathstutor.com%2Fdownload%2FComputer-Science%2FA-level%2FPast-Papers%2FOCR%2FPaper-1%2FJune%202023%20QP%20-%20Paper%201%20OCR%20Computer%20Science%20A-level.pdf',
           2024: 'https://www.physicsandmathstutor.com/pdf-pages/?pdf=https%3A%2F%2Fpmt.physicsandmathstutor.com%2Fdownload%2FComputer-Science%2FA-level%2FPast-Papers%2FOCR%2FPaper-1%2FJune%202024%20QP%20-%20Paper%201%20OCR%20Computer%20Science%20A-level.pdf',
         },
-        // Per-year question structures — verified from OCR official mark schemes and question papers
+        // Only built-in template — OCR H446/01 June 2023 (verified from official mark scheme)
         yearQuestions: {
-          // ── 2024 ── Source: OCR H446/01 Mark Scheme June 2024
-          2024: [
-            { n:1, topic:'CPU Architecture', subtopic:'Fetch-Decode-Execute / Pipelining / Assembly / RAM',
-              parts:[{l:'a',marks:4},{l:'b',marks:1},{l:'c',marks:3},{l:'d i',marks:3},{l:'d ii',marks:4},{l:'e',marks:3},{l:'f',marks:2},{l:'g',marks:3}] },
-            { n:2, topic:'Input/Output / OS / Storage', subtopic:'Fitness tracker: I/O devices / Flash storage / BIOS / ROM / OS functions / Scheduling',
-              parts:[{l:'a',marks:2},{l:'b',marks:4},{l:'c i',marks:3},{l:'c ii',marks:2},{l:'d i',marks:4},{l:'d ii',marks:5},{l:'e',marks:9}] },
-            { n:3, topic:'Application Software & Compression', subtopic:'App software categories / VMs / Lossless vs Lossy / Linker / Loader',
-              parts:[{l:'a',marks:5},{l:'b',marks:1},{l:'c',marks:3},{l:'d i',marks:2},{l:'d ii',marks:2}] },
-            { n:4, topic:'Representation of Data', subtopic:'Binary / Hex / Floating point normalisation / Two\'s complement addition',
-              parts:[{l:'a i',marks:1},{l:'a ii',marks:1},{l:'b',marks:2},{l:'c',marks:3},{l:'d',marks:4},{l:'e',marks:2}] },
-            { n:5, topic:'Logic Gates & Boolean Algebra', subtopic:'Logic circuit diagram / Boolean expressions / Simplification',
-              parts:[{l:'a',marks:4},{l:'b i',marks:1},{l:'b ii',marks:1},{l:'b iii',marks:2}] },
-            { n:6, topic:'Internet & Search Engines', subtopic:'Search indexing / PageRank / Cultural issues in software design (extended response)',
-              parts:[{l:'a',marks:12}] },
-          ],
-          // ── 2023 ── Source: OCR H446/01 Mark Scheme June 2023
           2023: [
             { n:1, topic:'Software & Hardware', subtopic:'Application software / Networks / OS types / Interrupts / Memory management',
               parts:[{l:'a i',marks:1},{l:'a ii',marks:4},{l:'a iii',marks:3},{l:'b',marks:3},{l:'c',marks:2},{l:'d i',marks:3},{l:'d ii',marks:2},{l:'d iii',marks:2},{l:'d iv',marks:3},{l:'e i',marks:1},{l:'e ii',marks:6},{l:'f',marks:3},{l:'g',marks:9}] },
             { n:2, topic:'Data Structures — Stacks', subtopic:'Stack pseudocode / Trace tables / Stack vs Queue / Arrays vs Lists / Tuples / Linked lists',
               parts:[{l:'a',marks:5},{l:'b i',marks:3},{l:'b ii',marks:3},{l:'b iii',marks:3},{l:'c i',marks:2},{l:'c ii',marks:2},{l:'c iii',marks:1},{l:'c iv',marks:3}] },
-            { n:3, topic:'Representation of Data', subtopic:'Hex / Binary / Two\'s complement / Floating point',
+            { n:3, topic:'Representation of Data', subtopic:'Hex / Binary / Two’s complement / Floating point',
               parts:[{l:'a i',marks:1},{l:'a ii',marks:1},{l:'b i',marks:1},{l:'b ii',marks:1},{l:'b iii',marks:1},{l:'c',marks:4},{l:'d',marks:3},{l:'e',marks:2}] },
             { n:4, topic:'Languages, Processors & Security', subtopic:'HLL vs Assembly / Parallel processing / Encryption & Hashing / HTML & CSS / Legislation / SQL',
               parts:[{l:'a i',marks:4},{l:'b i',marks:1},{l:'b ii',marks:2},{l:'c',marks:9},{l:'d i',marks:5},{l:'d ii',marks:3},{l:'e i',marks:3},{l:'e ii',marks:2},{l:'f i',marks:2},{l:'f ii',marks:2},{l:'f iii',marks:2}] },
@@ -1273,125 +1261,7 @@ const PAPERS = {
             { n:7, topic:'Legislation & Ethics', subtopic:'RIPA 2000 — surveillance powers, benefits & drawbacks (extended response)',
               parts:[{l:'',marks:12}] },
           ],
-          // ── 2022 ── Source: OCR H446/01 Mark Scheme June 2022
-          2022: [
-            { n:1, topic:'CPU & Architecture', subtopic:'Von Neumann / Harvard / Performance / Pipelining / LMC / Registers / CISC vs RISC',
-              parts:[{l:'a i',marks:2},{l:'a ii',marks:1},{l:'b',marks:2},{l:'c i',marks:3},{l:'c ii',marks:4},{l:'c iii',marks:3},{l:'c iv',marks:2},{l:'d i',marks:2},{l:'d ii',marks:2},{l:'d iii',marks:3},{l:'e',marks:12}] },
-            { n:2, topic:'Databases & SQL', subtopic:'Primary/Foreign keys / Data types / SQL queries / Data capture / File formats / ACID / Locking / Copyright',
-              parts:[{l:'a i',marks:1},{l:'a ii',marks:2},{l:'a iii',marks:1},{l:'a iv',marks:1},{l:'b',marks:5},{l:'c i',marks:3},{l:'c ii',marks:2},{l:'d i',marks:2},{l:'d ii',marks:1},{l:'d iii',marks:3},{l:'d iv',marks:1},{l:'e',marks:2},{l:'f',marks:5}] },
-            { n:3, topic:'Representation of Data & Compression', subtopic:'Binary / Decimal / Floating point / Compression types',
-              parts:[{l:'a',marks:3},{l:'b i',marks:2},{l:'b ii',marks:3},{l:'b iii',marks:4},{l:'b iv',marks:2},{l:'c',marks:3}] },
-            { n:4, topic:'Networking', subtopic:'TCP/IP layers / Protocols / WiFi / Encryption',
-              parts:[{l:'a i',marks:2},{l:'a ii',marks:3},{l:'a iii',marks:4},{l:'b i',marks:3},{l:'b ii',marks:4}] },
-            { n:5, topic:'Programming — Pseudocode', subtopic:'Variables / File reading / Subroutines',
-              parts:[{l:'a',marks:3},{l:'b',marks:4},{l:'c',marks:4}] },
-            { n:6, topic:'Boolean Algebra & Logic', subtopic:'Logic circuits / Simplification / Karnaugh maps',
-              parts:[{l:'a i',marks:2},{l:'a ii',marks:3},{l:'b i',marks:4},{l:'b ii',marks:3}] },
-            { n:7, topic:'Ethical & Legal Issues', subtopic:'AI / Automated systems / Computing legislation (extended response)',
-              parts:[{l:'',marks:12}] },
-          ],
-          // ── 2019 ── Source: OCR official mark scheme H446/01 June 2019
-          2019: [
-            { n:1, topic:'CPU & Architecture', subtopic:'Von Neumann / FDE / Registers / Interrupts / Virtual memory / OS',
-              parts:[{l:'a i',marks:2},{l:'a ii',marks:2},{l:'b i',marks:3},{l:'b ii',marks:3},{l:'c i',marks:2},{l:'c ii',marks:3},{l:'d',marks:4},{l:'e',marks:9}] },
-            { n:2, topic:'Networks & Security', subtopic:'TCP/IP / Protocols / Encryption / Firewalls / Packet switching',
-              parts:[{l:'a i',marks:2},{l:'a ii',marks:3},{l:'b i',marks:2},{l:'b ii',marks:3},{l:'c',marks:4},{l:'d',marks:4}] },
-            { n:3, topic:'Databases & SQL', subtopic:'Relational DB / Primary keys / SQL / Normalisation',
-              parts:[{l:'a',marks:4},{l:'b',marks:3},{l:'c',marks:3},{l:'d i',marks:2},{l:'d ii',marks:2},{l:'d iii',marks:2}] },
-            { n:4, topic:'Representation of Data', subtopic:'Binary / Hex / Two\'s complement / Floating point',
-              parts:[{l:'a i',marks:1},{l:'a ii',marks:1},{l:'b',marks:2},{l:'c',marks:3},{l:'d',marks:4},{l:'e',marks:3}] },
-            { n:5, topic:'HTML / CSS / JavaScript', subtopic:'Web technologies / Client-side scripting',
-              parts:[{l:'a',marks:4},{l:'b',marks:3},{l:'c',marks:3}] },
-            { n:6, topic:'Boolean Algebra & Logic', subtopic:'Simplification / Truth tables / Logic gates',
-              parts:[{l:'a',marks:3},{l:'b',marks:4},{l:'c',marks:2},{l:'d',marks:3}] },
-            { n:7, topic:'Compression & File Formats', subtopic:'RLE / Dictionary encoding / Lossy vs lossless',
-              parts:[{l:'a',marks:4},{l:'b',marks:4}] },
-            { n:8, topic:'Ethical & Legal Issues', subtopic:'AI and employment / Computing legislation (extended response)',
-              parts:[{l:'',marks:12}] },
-          ],
-          // ── 2018 ── Source: OCR H446/01 Mark Scheme June 2018 (full paper read)
-          2018: [
-            { n:1, topic:'CPU Architecture', subtopic:'Von Neumann / Harvard / CPU features / LMC / FDE / Assembly vs HLL',
-              parts:[{l:'a i',marks:2},{l:'a ii',marks:2},{l:'b i',marks:2},{l:'b ii',marks:6},{l:'b iii',marks:3},{l:'b iv',marks:9}] },
-            { n:2, topic:'OS & Web Technologies', subtopic:'OS functions / Paging / HTML / Search indexing / RISC',
-              parts:[{l:'a i',marks:3},{l:'a ii',marks:1},{l:'a iii',marks:3},{l:'b i',marks:5},{l:'b ii',marks:3},{l:'b iii',marks:3}] },
-            { n:3, topic:'Databases & SQL', subtopic:'SQL queries / Normalisation / Data exchange formats',
-              parts:[{l:'a',marks:2},{l:'b',marks:3},{l:'c i',marks:1},{l:'c ii',marks:1},{l:'d i',marks:2},{l:'d ii',marks:2},{l:'d iii',marks:2},{l:'e',marks:2}] },
-            { n:4, topic:'Networking', subtopic:'WAN / Protocols / TCP/IP layers',
-              parts:[{l:'a',marks:2},{l:'b i',marks:2},{l:'b ii',marks:4}] },
-            { n:5, topic:'Accessibility & Data Structures', subtopic:'Assistive input devices / Trie / Open source',
-              parts:[{l:'a',marks:2},{l:'b i',marks:2},{l:'b ii',marks:2},{l:'c',marks:2}] },
-            { n:6, topic:'Legislation & Ethics', subtopic:'Computing laws (DPA, CMA, CDPA, RIPA) — extended response',
-              parts:[{l:'',marks:12}] },
-          ],
-          // ── 2017 ── Source: OCR H446/01 Question Paper June 2017 (full QP read)
-          2017: [
-            { n:1, topic:'CPU, OS & Networking', subtopic:'GPU / RAM / CPU features / OS memory methods / Multi-tasking / LAN / Firewall',
-              parts:[{l:'a i',marks:1},{l:'a ii',marks:2},{l:'a iii',marks:1},{l:'b i',marks:4},{l:'b ii',marks:2},{l:'c i',marks:2},{l:'c ii',marks:1},{l:'c iii',marks:1}] },
-            { n:2, topic:'Data Structures', subtopic:'Linked lists / Hash tables',
-              parts:[{l:'a i',marks:3},{l:'a ii',marks:4},{l:'b',marks:4}] },
-            { n:3, topic:'Compression', subtopic:'RLE vs dictionary encoding / Lossless compression',
-              parts:[{l:'a i',marks:1},{l:'a ii',marks:3},{l:'b',marks:12}] },
-            { n:4, topic:'Boolean Algebra', subtopic:'Boolean expressions / Truth tables / Simplification / Security',
-              parts:[{l:'a',marks:3},{l:'b i',marks:4},{l:'b ii',marks:2},{l:'c',marks:2}] },
-            { n:5, topic:'Assembly Language (LMC)', subtopic:'DAT / LMC trace / ACC / PC / Program output / Purpose',
-              parts:[{l:'a i',marks:3},{l:'a ii',marks:3},{l:'b i',marks:1},{l:'b ii',marks:1},{l:'b iii',marks:1},{l:'b iv',marks:1},{l:'b v',marks:2}] },
-            { n:6, topic:'Representation of Data', subtopic:'Binary / Hex / Sign & magnitude / Two\'s complement / Bit shift / Floating point',
-              parts:[{l:'a i',marks:1},{l:'a ii',marks:1},{l:'b i',marks:1},{l:'b ii',marks:1},{l:'c',marks:2},{l:'d',marks:6}] },
-            { n:7, topic:'Databases & SQL', subtopic:'Primary keys / Hashing / SQL queries / Normalisation',
-              parts:[{l:'a',marks:2},{l:'b i',marks:1},{l:'b ii',marks:2},{l:'c',marks:3},{l:'d',marks:3},{l:'e',marks:4}] },
-            { n:8, topic:'Ethics — AI & Employment', subtopic:'AI impact on employment (extended response)',
-              parts:[{l:'',marks:9}] },
-            { n:9, topic:'Web Technologies', subtopic:'HTML id vs class / CSS / JavaScript / Client-side vs server-side',
-              parts:[{l:'a',marks:2},{l:'b',marks:6},{l:'c i',marks:1},{l:'c ii',marks:1},{l:'c iii',marks:1}] },
-            { n:10, topic:'Software Development', subtopic:'RAD / Algorithm (validateAnswer) / Binary search tree',
-              parts:[{l:'a',marks:4},{l:'b',marks:6},{l:'c',marks:1},{l:'d',marks:2}] },
-          ],
-          // ── Nov 2020 ── Autumn series (similar structure to 2019)
-          2020: [
-            { n:1, topic:'CPU Architecture', subtopic:'CPU components / FDE / Pipelining / Interrupts / OS / Memory management',
-              parts:[{l:'a i',marks:2},{l:'a ii',marks:3},{l:'b i',marks:3},{l:'b ii',marks:3},{l:'c i',marks:2},{l:'c ii',marks:3},{l:'d',marks:9}] },
-            { n:2, topic:'Networks & Protocols', subtopic:'TCP/IP / Protocols / Packet switching / Security',
-              parts:[{l:'a',marks:3},{l:'b i',marks:3},{l:'b ii',marks:4},{l:'c i',marks:2},{l:'c ii',marks:4}] },
-            { n:3, topic:'Databases & SQL', subtopic:'Relational DB / SQL / Normalisation / Transactions',
-              parts:[{l:'a',marks:4},{l:'b',marks:4},{l:'c i',marks:2},{l:'c ii',marks:2},{l:'d',marks:3}] },
-            { n:4, topic:'Representation of Data', subtopic:'Binary / Hex / Two\'s complement / Floating point',
-              parts:[{l:'a i',marks:1},{l:'a ii',marks:1},{l:'b',marks:2},{l:'c',marks:3},{l:'d',marks:4},{l:'e',marks:3}] },
-            { n:5, topic:'Web & Compression', subtopic:'HTML / CSS / Compression algorithms',
-              parts:[{l:'a',marks:4},{l:'b',marks:3},{l:'c',marks:3}] },
-            { n:6, topic:'Boolean Algebra & Logic', subtopic:'Logic circuits / Truth tables / Simplification',
-              parts:[{l:'a',marks:3},{l:'b',marks:4},{l:'c',marks:4}] },
-            { n:7, topic:'Ethical & Legal Issues', subtopic:'Computing legislation / AI / Ethics (extended response)',
-              parts:[{l:'',marks:12}] },
-          ],
-          // ── Nov 2021 ── Autumn series
-          2021: [
-            { n:1, topic:'CPU Architecture', subtopic:'CPU components / FDE / Pipelining / Interrupts / OS / Memory management',
-              parts:[{l:'a i',marks:2},{l:'a ii',marks:2},{l:'b',marks:3},{l:'c i',marks:2},{l:'c ii',marks:3},{l:'c iii',marks:3},{l:'d i',marks:2},{l:'d ii',marks:2},{l:'e',marks:9}] },
-            { n:2, topic:'Networks & Security', subtopic:'Protocols / TCP/IP stack / Encryption / Firewalls',
-              parts:[{l:'a i',marks:2},{l:'a ii',marks:3},{l:'b i',marks:2},{l:'b ii',marks:3},{l:'c',marks:4}] },
-            { n:3, topic:'Databases & SQL', subtopic:'SQL queries / Keys / Normalisation / ACID',
-              parts:[{l:'a',marks:3},{l:'b',marks:4},{l:'c i',marks:2},{l:'c ii',marks:2},{l:'d',marks:3}] },
-            { n:4, topic:'Representation of Data', subtopic:'Binary / Hex / Floating point / Two\'s complement',
-              parts:[{l:'a',marks:2},{l:'b',marks:3},{l:'c',marks:4},{l:'d',marks:3}] },
-            { n:5, topic:'Web Technologies', subtopic:'HTML / CSS / JavaScript',
-              parts:[{l:'a',marks:3},{l:'b',marks:4},{l:'c',marks:3}] },
-            { n:6, topic:'Boolean Algebra & Logic', subtopic:'Boolean expressions / Truth tables / Karnaugh maps',
-              parts:[{l:'a',marks:3},{l:'b',marks:4},{l:'c',marks:4}] },
-            { n:7, topic:'Ethical & Legal Issues', subtopic:'Computing legislation / ethics (extended response)',
-              parts:[{l:'',marks:12}] },
-          ],
-        },
-        // Fallback questions (used if no year-specific data)
-        questions: [
-          { n:1, topic:'CPU Architecture', subtopic:'FDE / Registers / Pipelining / OS', parts:[{l:'a',marks:4},{l:'b',marks:3},{l:'c',marks:5},{l:'d',marks:9}] },
-          { n:2, topic:'Networks & Protocols', subtopic:'TCP/IP / Protocols / Security', parts:[{l:'a',marks:4},{l:'b',marks:5},{l:'c',marks:5}] },
-          { n:3, topic:'Databases & SQL', subtopic:'SQL / Keys / Normalisation', parts:[{l:'a',marks:3},{l:'b',marks:4},{l:'c',marks:5}] },
-          { n:4, topic:'Representation of Data', subtopic:'Binary / Hex / Floating point', parts:[{l:'a',marks:3},{l:'b',marks:4},{l:'c',marks:3}] },
-          { n:5, topic:'Web & Compression', subtopic:'HTML / CSS / Compression', parts:[{l:'a',marks:3},{l:'b',marks:4}] },
-          { n:6, topic:'Boolean Algebra', subtopic:'Logic / Truth tables / Simplification', parts:[{l:'a',marks:3},{l:'b',marks:4},{l:'c',marks:4}] },
-          { n:7, topic:'Legislation & Ethics', subtopic:'Extended response', parts:[{l:'',marks:12}] },
-        ]
+        }
       },
       'Paper 2': {
         title: 'Algorithms & Programming (H446/02)',
@@ -1406,185 +1276,16 @@ const PAPERS = {
           2022: 'https://www.physicsandmathstutor.com/pdf-pages/?pdf=https%3A%2F%2Fpmt.physicsandmathstutor.com%2Fdownload%2FComputer-Science%2FA-level%2FPast-Papers%2FOCR%2FPaper-2%2FJune%202022%20QP%20-%20Paper%202%20OCR%20Computer%20Science%20A-level.pdf',
           2023: 'https://www.physicsandmathstutor.com/pdf-pages/?pdf=https%3A%2F%2Fpmt.physicsandmathstutor.com%2Fdownload%2FComputer-Science%2FA-level%2FPast-Papers%2FOCR%2FPaper-2%2FJune%202023%20QP%20-%20Paper%202%20OCR%20Computer%20Science%20A-level.pdf',
           2024: 'https://www.physicsandmathstutor.com/pdf-pages/?pdf=https%3A%2F%2Fpmt.physicsandmathstutor.com%2Fdownload%2FComputer-Science%2FA-level%2FPast-Papers%2FOCR%2FPaper-2%2FJune%202024%20QP%20-%20Paper%202%20OCR%20Computer%20Science%20A-level.pdf',
-        },
-        yearQuestions: {
-          // ── 2024 ── Source: OCR H446/02 Mark Scheme June 2024
-          2024: [
-            { n:1, topic:'Variables, Loops & Pseudocode', subtopic:'Variable definition / Do-while vs While / Converting loop types',
-              parts:[{l:'a i',marks:2},{l:'a ii',marks:1},{l:'b',marks:2},{l:'c',marks:4}] },
-            { n:2, topic:'Data Mining', subtopic:'Analysing large data sets / Patterns / Applications (extended response)',
-              parts:[{l:'',marks:12}] },
-            { n:3, topic:'Graph Algorithms & Data Structures', subtopic:'A* algorithm / Graphs vs Trees',
-              parts:[{l:'a',marks:7},{l:'b',marks:4},{l:'c',marks:9}] },
-            { n:4, topic:'Queues', subtopic:'Queue pointers / Circular queue operations / Queue vs other structures',
-              parts:[{l:'a',marks:2},{l:'b',marks:2},{l:'c',marks:2}] },
-            { n:5, topic:'Stacks', subtopic:'Pop algorithm / Push pseudocode / Calling with error handling',
-              parts:[{l:'a',marks:4},{l:'b',marks:4},{l:'c',marks:4}] },
-            { n:6, topic:'Searching Algorithms', subtopic:'Linear search / Reason for use / Insertion sort trace',
-              parts:[{l:'a',marks:3},{l:'b',marks:1},{l:'c',marks:5}] },
-            { n:7, topic:'Time Complexity & Big O', subtopic:'Records / Binary search trees / Tree traversal / Complexity',
-              parts:[{l:'a',marks:2},{l:'b i',marks:2},{l:'b ii',marks:1},{l:'b iii',marks:5},{l:'b iv',marks:3}] },
-            { n:8, topic:'Abstraction & I/O', subtopic:'Inputs/outputs / Abstraction definition and examples',
-              parts:[{l:'a',marks:4},{l:'b i',marks:3},{l:'b ii',marks:2}] },
-            { n:9, topic:'OOP', subtopic:'Abstraction / Class definition / Encapsulation / Constructor / Procedure',
-              parts:[{l:'a i',marks:3},{l:'a ii',marks:2},{l:'b i',marks:2},{l:'b ii',marks:4},{l:'b iii',marks:3}] },
-            { n:10, topic:'Parameters & Variables', subtopic:'Local/global variables / Pass by reference/value (extended response)',
-              parts:[{l:'',marks:9}] },
-          ],
-          // ── 2023 ── Source: OCR H446/02 Mark Scheme June 2023
-          2023: [
-            { n:1, topic:'Trees & Graph Algorithms', subtopic:'Binary trees / Traversal / Dijkstra\'s algorithm',
-              parts:[{l:'a i',marks:2},{l:'a ii',marks:4},{l:'a iii',marks:2},{l:'a iv',marks:4},{l:'a v',marks:4},{l:'a vi',marks:2},{l:'b',marks:6}] },
-            { n:2, topic:'Computational Thinking', subtopic:'Problem recognition / Decomposition / Abstraction (extended response)',
-              parts:[{l:'',marks:9}] },
-            { n:3, topic:'Data Structures — Linked Lists', subtopic:'Linked list operations / Pseudocode / Pointers',
-              parts:[{l:'a',marks:2},{l:'b',marks:1},{l:'c',marks:2},{l:'d',marks:4},{l:'e',marks:5}] },
-            { n:4, topic:'Trace Tables & Subroutines', subtopic:'Tracing pseudocode / Identifier names / Benefits of subroutines',
-              parts:[{l:'a i',marks:1},{l:'a ii',marks:1},{l:'a iii',marks:1},{l:'b',marks:3},{l:'c',marks:2}] },
-            { n:5, topic:'Recursion', subtopic:'Features of recursion / Trace recursive algorithm',
-              parts:[{l:'a',marks:3},{l:'b',marks:5}] },
-            { n:6, topic:'Programming — Algorithm Writing', subtopic:'Writing pseudocode (e.g. base conversion)',
-              parts:[{l:'',marks:6}] },
-            { n:7, topic:'Complexity, Concurrency & Sorting', subtopic:'Big O / Concurrent processing / Merge sort / IDE features',
-              parts:[{l:'a',marks:9},{l:'b i',marks:2},{l:'b ii',marks:2},{l:'c i',marks:5},{l:'c ii',marks:2},{l:'d',marks:6}] },
-            { n:8, topic:'Input/Output & Decomposition', subtopic:'Identifying inputs/outputs / Subprocedures',
-              parts:[{l:'a',marks:3},{l:'b',marks:2}] },
-            { n:9, topic:'OOP & Abstraction', subtopic:'Abstraction / OOP classes / Encapsulation / Inheritance / Parameters & variables',
-              parts:[{l:'a i',marks:3},{l:'a ii',marks:3},{l:'b i',marks:5},{l:'b ii',marks:2},{l:'b iii',marks:2},{l:'c',marks:5},{l:'d',marks:7},{l:'e',marks:4},{l:'f',marks:9}] },
-          ],
-          // ── 2022 ── Source: OCR H446/02 Mark Scheme June 2022
-          2022: [
-            { n:1, topic:'Sorting & Searching Algorithms', subtopic:'Bubble sort / Merge sort / Binary search / Big O',
-              parts:[{l:'a i',marks:3},{l:'a ii',marks:3},{l:'b i',marks:3},{l:'b ii',marks:3},{l:'c i',marks:3},{l:'c ii',marks:2}] },
-            { n:2, topic:'Graph Theory & Algorithms', subtopic:'Graphs / Dijkstra\'s / Shortest path',
-              parts:[{l:'a i',marks:2},{l:'a ii',marks:6},{l:'a iii',marks:3}] },
-            { n:3, topic:'Computational Thinking', subtopic:'Problem recognition / Decomposition / Abstraction (extended response)',
-              parts:[{l:'',marks:9}] },
-            { n:4, topic:'Data Structures — Trees & Queues', subtopic:'Binary tree operations / Queue implementation / Comparison',
-              parts:[{l:'a i',marks:2},{l:'a ii',marks:4},{l:'b i',marks:3},{l:'b ii',marks:3},{l:'c',marks:2}] },
-            { n:5, topic:'Recursion', subtopic:'Recursive algorithm / Trace / Stack usage',
-              parts:[{l:'a',marks:4},{l:'b',marks:5},{l:'c',marks:3}] },
-            { n:6, topic:'Programming Paradigms', subtopic:'OOP vs procedural / Class design / Inheritance',
-              parts:[{l:'a',marks:3},{l:'b i',marks:4},{l:'b ii',marks:3},{l:'c',marks:4}] },
-            { n:7, topic:'Pseudocode & Algorithms', subtopic:'Writing / Tracing pseudocode / File handling',
-              parts:[{l:'a',marks:4},{l:'b',marks:5},{l:'c',marks:3}] },
-            { n:8, topic:'OOP Extended Response', subtopic:'OOP principles: encapsulation / inheritance / polymorphism',
-              parts:[{l:'',marks:9}] },
-            { n:9, topic:'Big O & IDE Features', subtopic:'Time/space complexity / Debugging tools',
-              parts:[{l:'a i',marks:3},{l:'a ii',marks:3},{l:'b',marks:6}] },
-          ],
-          // ── 2019 ── Source: OCR official resources
-          2019: [
-            { n:1, topic:'Sorting & Searching', subtopic:'Insertion sort / Binary search / Complexity',
-              parts:[{l:'a i',marks:3},{l:'a ii',marks:3},{l:'b i',marks:3},{l:'b ii',marks:2},{l:'c',marks:2}] },
-            { n:2, topic:'Graph Algorithms', subtopic:'Dijkstra\'s algorithm / Shortest path',
-              parts:[{l:'a',marks:7},{l:'b',marks:4}] },
-            { n:3, topic:'Computational Thinking', subtopic:'Problem recognition / Decomposition (extended response)',
-              parts:[{l:'',marks:9}] },
-            { n:4, topic:'Data Structures', subtopic:'Linked lists / Binary trees / Queues',
-              parts:[{l:'a i',marks:3},{l:'a ii',marks:4},{l:'b',marks:3},{l:'c',marks:4}] },
-            { n:5, topic:'Recursion', subtopic:'Recursive functions / Trace / Base case',
-              parts:[{l:'a',marks:3},{l:'b',marks:5},{l:'c',marks:3}] },
-            { n:6, topic:'Programming — Pseudocode', subtopic:'Writing algorithms / File handling',
-              parts:[{l:'a',marks:5},{l:'b',marks:4}] },
-            { n:7, topic:'OOP', subtopic:'Classes / Inheritance / Encapsulation / Polymorphism',
-              parts:[{l:'a',marks:3},{l:'b i',marks:4},{l:'b ii',marks:3},{l:'c',marks:4},{l:'d',marks:4}] },
-            { n:8, topic:'Big O & IDE', subtopic:'Complexity / IDE debugging features (extended response)',
-              parts:[{l:'a',marks:9},{l:'b',marks:6}] },
-          ],
-          // ── 2018 ── Source: OCR H446/02 Mark Scheme June 2018 (full read)
-          2018: [
-            { n:1, topic:'Trees & Graph Algorithms', subtopic:'Binary search tree / Tree search pseudocode / Graph vs Tree',
-              parts:[{l:'a',marks:3},{l:'b',marks:3},{l:'c i',marks:5},{l:'c ii',marks:2}] },
-            { n:2, topic:'Computational Thinking', subtopic:'Problem recognition / Decomposition / Data mining / Simulation / Components',
-              parts:[{l:'a i',marks:2},{l:'a ii',marks:1},{l:'b i',marks:1},{l:'b ii',marks:4},{l:'c i',marks:1},{l:'c ii',marks:1},{l:'d',marks:2}] },
-            { n:3, topic:'Graph Theory & Dijkstra\'s', subtopic:'Graph vs Tree / State space / Visualisation / Dijkstra\'s / Dijkstra vs A* (extended response)',
-              parts:[{l:'a i',marks:1},{l:'a ii',marks:2},{l:'a iii',marks:2},{l:'b',marks:7},{l:'c',marks:9},{l:'d',marks:6}] },
-            { n:4, topic:'Programming Algorithms', subtopic:'Base conversion / Octal pseudocode / String manipulation',
-              parts:[{l:'a',marks:5},{l:'b',marks:6}] },
-            { n:5, topic:'OOP & Abstraction', subtopic:'Class design / Inheritance / Encapsulation',
-              parts:[{l:'a i',marks:3},{l:'a ii',marks:4},{l:'b i',marks:3},{l:'b ii',marks:4}] },
-            { n:6, topic:'Recursion', subtopic:'Recursive sort / Trace / Comparison with iterative',
-              parts:[{l:'a',marks:4},{l:'b',marks:5},{l:'c',marks:3}] },
-            { n:7, topic:'Big O & Parallel Processing', subtopic:'Time complexity / Concurrency (extended response)',
-              parts:[{l:'a',marks:9},{l:'b',marks:5}] },
-          ],
-          // ── 2017 ── Source: OCR H446/02 QP June 2017 (QP read, mark scheme inferred)
-          2017: [
-            { n:1, topic:'Sorting Algorithms', subtopic:'Insertion sort / Pseudocode completion / Binary tree',
-              parts:[{l:'a i',marks:3},{l:'a ii',marks:3},{l:'b',marks:2},{l:'c',marks:2}] },
-            { n:2, topic:'Computational Thinking', subtopic:'Problem recognition / Decomposition / Data mining / Components',
-              parts:[{l:'a i',marks:2},{l:'a ii',marks:1},{l:'b i',marks:1},{l:'b ii',marks:4},{l:'c i',marks:1},{l:'c ii',marks:1},{l:'d',marks:2}] },
-            { n:3, topic:'Graph Algorithms', subtopic:'Dijkstra\'s / Shortest path / Dijkstra vs A* (extended response)',
-              parts:[{l:'a i',marks:1},{l:'a ii',marks:2},{l:'b',marks:7},{l:'c',marks:9},{l:'d',marks:6}] },
-            { n:4, topic:'Programming Algorithms', subtopic:'Pseudocode writing / String / Sequence algorithms',
-              parts:[{l:'a',marks:5},{l:'b',marks:6}] },
-            { n:5, topic:'OOP', subtopic:'Classes / Inheritance / Encapsulation / Polymorphism',
-              parts:[{l:'a i',marks:3},{l:'a ii',marks:4},{l:'b i',marks:3},{l:'b ii',marks:4}] },
-            { n:6, topic:'Recursion', subtopic:'Recursive algorithm / Trace / Stack / Base case',
-              parts:[{l:'a',marks:3},{l:'b',marks:5},{l:'c',marks:4}] },
-            { n:7, topic:'Big O & IDE Features', subtopic:'Complexity / Debugging tools (extended response)',
-              parts:[{l:'a',marks:9},{l:'b',marks:6}] },
-          ],
-          // ── Nov 2020 / Nov 2021 ── Autumn series
-          2020: [
-            { n:1, topic:'Sorting & Searching', subtopic:'Insertion sort / Merge sort / Binary search / Complexity',
-              parts:[{l:'a i',marks:3},{l:'a ii',marks:3},{l:'b i',marks:3},{l:'b ii',marks:3},{l:'c i',marks:2},{l:'c ii',marks:3}] },
-            { n:2, topic:'Graph Algorithms', subtopic:'Graphs / Dijkstra\'s / Shortest path',
-              parts:[{l:'a',marks:7},{l:'b',marks:4}] },
-            { n:3, topic:'Computational Thinking', subtopic:'Abstraction / Decomposition (extended response)',
-              parts:[{l:'',marks:9}] },
-            { n:4, topic:'Data Structures', subtopic:'Linked lists / Binary trees / Stacks / Queues',
-              parts:[{l:'a i',marks:3},{l:'a ii',marks:4},{l:'b',marks:3},{l:'c',marks:4}] },
-            { n:5, topic:'Recursion', subtopic:'Recursive algorithms / Trace / Base case',
-              parts:[{l:'a',marks:3},{l:'b',marks:5},{l:'c',marks:3}] },
-            { n:6, topic:'Programming — Pseudocode', subtopic:'Algorithm writing / File handling',
-              parts:[{l:'a',marks:5},{l:'b',marks:4}] },
-            { n:7, topic:'OOP', subtopic:'Classes / Inheritance / Encapsulation / Polymorphism',
-              parts:[{l:'a',marks:3},{l:'b i',marks:4},{l:'b ii',marks:3},{l:'c',marks:4},{l:'d',marks:4}] },
-            { n:8, topic:'Big O & IDE', subtopic:'Complexity / Debugging tools (extended response)',
-              parts:[{l:'a',marks:9},{l:'b',marks:6}] },
-          ],
-          2021: [
-            { n:1, topic:'Sorting & Searching', subtopic:'Sort algorithms / Complexity analysis',
-              parts:[{l:'a i',marks:3},{l:'a ii',marks:3},{l:'b i',marks:3},{l:'b ii',marks:3},{l:'c',marks:3}] },
-            { n:2, topic:'Graph Theory & Algorithms', subtopic:'Dijkstra\'s / A* / Graph traversal',
-              parts:[{l:'a',marks:7},{l:'b',marks:5}] },
-            { n:3, topic:'Computational Thinking', subtopic:'Abstraction / Decomposition (extended response)',
-              parts:[{l:'',marks:9}] },
-            { n:4, topic:'Data Structures', subtopic:'Trees / Linked lists / Stacks / Queues',
-              parts:[{l:'a i',marks:2},{l:'a ii',marks:4},{l:'b i',marks:3},{l:'b ii',marks:3},{l:'c',marks:3}] },
-            { n:5, topic:'Recursion', subtopic:'Recursive algorithms / Trace tables',
-              parts:[{l:'a',marks:3},{l:'b',marks:5},{l:'c',marks:3}] },
-            { n:6, topic:'Programming', subtopic:'Pseudocode / Algorithm writing',
-              parts:[{l:'a',marks:4},{l:'b',marks:5}] },
-            { n:7, topic:'OOP', subtopic:'Classes / Inheritance / Encapsulation / Parameters',
-              parts:[{l:'a',marks:3},{l:'b i',marks:4},{l:'b ii',marks:3},{l:'c',marks:5},{l:'d',marks:4}] },
-            { n:8, topic:'Big O & Concurrency', subtopic:'Time complexity / Parallel processing (extended response)',
-              parts:[{l:'a',marks:9},{l:'b',marks:5}] },
-          ],
-        },
-        // Fallback questions
-        questions: [
-          { n:1, topic:'Graph Algorithms', subtopic:'Trees / Dijkstra\'s / Traversal', parts:[{l:'a i',marks:2},{l:'a ii',marks:4},{l:'a iii',marks:4},{l:'b',marks:6}] },
-          { n:2, topic:'Computational Thinking', subtopic:'Problem recognition / Decomposition (extended response)', parts:[{l:'',marks:9}] },
-          { n:3, topic:'Data Structures', subtopic:'Linked lists / Stacks / Queues', parts:[{l:'a',marks:3},{l:'b',marks:4},{l:'c',marks:4}] },
-          { n:4, topic:'Trace Tables & Subroutines', subtopic:'Tracing pseudocode', parts:[{l:'a',marks:3},{l:'b',marks:3},{l:'c',marks:2}] },
-          { n:5, topic:'Recursion', subtopic:'Recursive algorithms / Trace', parts:[{l:'a',marks:3},{l:'b',marks:5}] },
-          { n:6, topic:'Algorithm Writing', subtopic:'Pseudocode', parts:[{l:'',marks:6}] },
-          { n:7, topic:'Big O & Sorting', subtopic:'Complexity / Sorting algorithms', parts:[{l:'a',marks:9},{l:'b i',marks:2},{l:'b ii',marks:2},{l:'c',marks:7}] },
-          { n:8, topic:'I/O & Abstraction', subtopic:'Inputs/outputs / Abstraction', parts:[{l:'a',marks:3},{l:'b',marks:5}] },
-          { n:9, topic:'OOP', subtopic:'Classes / Encapsulation / Inheritance', parts:[{l:'a i',marks:3},{l:'a ii',marks:3},{l:'b i',marks:5},{l:'b ii',marks:2},{l:'b iii',marks:2},{l:'c',marks:5},{l:'d',marks:7},{l:'e',marks:4},{l:'f',marks:9}] },
-        ]
+        }
       }
     }
   }
 };
-
 // Years available per board
 const YEARS = {
   edexcel: [2024,2023,2022,2019,2018,2017],
-  ocr:     [2024,2023,2022,2021,2020,2019,2018,2017]
+  ocr:     [2024,2023,2022,2021,2020,2019,2018,2017],
+  aqa:     [2024,2023,2022,2019,2018,2017],
 };
 
 // Grade boundary data — verified from official exam board documents
@@ -1691,13 +1392,63 @@ let currentYear = null;
 let currentPaperDef = null;
 let allInputRefs = []; // flat list of inputs in order
 let currentBoundaries = null;
-let currentAccentVar = '--accent-m';
 
 function getDB() {
   return JSON.parse(localStorage.getItem('papertrack_v2') || '{"records":[]}');
 }
 function saveDB(db) {
-  localStorage.setItem('papertrack_v2', JSON.stringify(db));
+  try {
+    localStorage.setItem('papertrack_v2', JSON.stringify(db));
+  } catch {
+    toast('Could not save — storage may be full or unavailable.', 'error');
+  }
+}
+
+// ─── TEMPLATES (user-built question structures, scoped to subject+paper+year) ───
+function getTemplates() {
+  try { return JSON.parse(localStorage.getItem('papertrack_templates') || '{}'); } catch { return {}; }
+}
+function saveTemplate(subject, paperKey, year, questions) {
+  const t = getTemplates();
+  if (!t[subject]) t[subject] = {};
+  if (!t[subject][paperKey]) t[subject][paperKey] = {};
+  t[subject][paperKey][year] = questions;
+  try { localStorage.setItem('papertrack_templates', JSON.stringify(t)); }
+  catch { toast('Could not save template — storage may be full.', 'error'); }
+}
+function getTemplate(subject, paperKey, year) {
+  // Built-in baked template wins (only CS P1 2023 ships pre-loaded)
+  const baked = PAPERS[subject]?.papers?.[paperKey]?.yearQuestions?.[year];
+  if (baked) return baked;
+  return getTemplates()[subject]?.[paperKey]?.[year] || null;
+}
+function deleteTemplate(subject, paperKey, year) {
+  const t = getTemplates();
+  if (t[subject]?.[paperKey]?.[year]) {
+    delete t[subject][paperKey][year];
+    try { localStorage.setItem('papertrack_templates', JSON.stringify(t)); } catch {}
+  }
+}
+
+// ─── TOPICS (per-subject editable tag list, used for tracking weak areas) ───
+const DEFAULT_TOPICS = {
+  maths:   ['Algebra & Functions','Coordinate Geometry','Sequences & Series','Trigonometry','Exponentials & Logs','Differentiation','Integration','Numerical Methods','Vectors','Proof','Statistics','Mechanics'],
+  physics: ['Mechanics — Forces & Motion','Mechanics — Circular Motion','Materials','Waves','Quantum Physics','Electricity','Magnetic Fields','Capacitors','Thermal Physics','Nuclear Physics','Gravitational Fields','Astrophysics','Cosmology','Practical Skills'],
+  cs:      ['CPU & Architecture','Memory & Storage','Operating Systems','Networks & Protocols','Databases & SQL','Representation of Data','Boolean Algebra & Logic','Programming','Algorithms','Data Structures','OOP','Recursion','Big O & Complexity','Legislation & Ethics','Computational Thinking'],
+};
+function getTopics(subject) {
+  try {
+    const t = JSON.parse(localStorage.getItem('papertrack_topics') || '{}');
+    if (Array.isArray(t[subject])) return t[subject];
+  } catch {}
+  return DEFAULT_TOPICS[subject] ? [...DEFAULT_TOPICS[subject]] : [];
+}
+function saveTopics(subject, list) {
+  let t = {};
+  try { t = JSON.parse(localStorage.getItem('papertrack_topics') || '{}'); } catch {}
+  t[subject] = list.slice();
+  try { localStorage.setItem('papertrack_topics', JSON.stringify(t)); }
+  catch { toast('Could not save topics — storage may be full.', 'error'); }
 }
 
 // ═══════════════════════════════════════════════════
@@ -1738,6 +1489,28 @@ function setAccent(sub) {
 // ═══════════════════════════════════════════════════
 //  SELECTORS
 // ═══════════════════════════════════════════════════
+// Generic paper slots for subjects not in PAPERS — users build templates per (subject, paper, year)
+const GENERIC_PAPERS = {
+  'Paper 1': { title: 'Paper 1' },
+  'Paper 2': { title: 'Paper 2' },
+  'Paper 3': { title: 'Paper 3' },
+};
+function getSubjectPapers(sub) {
+  return PAPERS[sub]?.papers || GENERIC_PAPERS;
+}
+function getSubjectBoard(sub) {
+  return PAPERS[sub]?.board || SUBJECT_CATALOG[sub]?.board || '';
+}
+function getSubjectName(sub) {
+  return PAPERS[sub]?.name || SUBJECT_CATALOG[sub]?.name || sub;
+}
+function getBoardKey(boardName) {
+  const b = (boardName || '').toLowerCase();
+  if (b.startsWith('edexcel')) return 'edexcel';
+  if (b.startsWith('aqa')) return 'aqa';
+  return 'ocr';
+}
+
 function onSubjectChange() {
   const sub = document.getElementById('sel-subject').value;
   const paperSel = document.getElementById('sel-paper');
@@ -1758,16 +1531,11 @@ function onSubjectChange() {
     document.documentElement.style.setProperty('--current-dim', cat.color + '1f');
   } else setAccent('m');
 
-  const subDef = PAPERS[sub];
-  if (!subDef) {
-    paperSel.disabled = true;
-    if (msg) msg.innerHTML = `Paper data for <strong>${cat?.name||sub}</strong> is coming soon. <a href="#" style="color:var(--current-accent);font-family:var(--mono);font-size:11px" onclick="event.preventDefault();showPMTPromptHint()">Generate with Claude →</a>`;
-    return;
-  }
-  Object.keys(subDef.papers).forEach(pk => {
+  const papers = getSubjectPapers(sub);
+  Object.keys(papers).forEach(pk => {
     const opt = document.createElement('option');
     opt.value = pk;
-    opt.textContent = `${pk} — ${subDef.papers[pk].title}`;
+    opt.textContent = papers[pk].title && papers[pk].title !== pk ? `${pk} — ${papers[pk].title}` : pk;
     paperSel.appendChild(opt);
   });
 }
@@ -1781,7 +1549,7 @@ function onPaperChange() {
   yearSel.disabled = !pk;
 
   if (!pk) return;
-  const board = PAPERS[sub].board.toLowerCase().startsWith('edexcel') ? 'edexcel' : 'ocr';
+  const board = getBoardKey(getSubjectBoard(sub));
   YEARS[board].forEach(y => {
     const opt = document.createElement('option');
     opt.value = y;
@@ -1798,6 +1566,11 @@ function loadPaper() {
 
   if (!sub || !pk || !yr) { msg.textContent = 'Please select all three fields.'; return; }
 
+  // Warn if user has started entering marks for a different paper
+  if (allInputRefs.length > 0 && allInputRefs.some(inp => inp.value !== '')) {
+    if (!confirm('You have unsaved marks. Load a new paper and discard them?')) return;
+  }
+
   // Check not already logged
   const db = getDB();
   const exists = db.records.find(r => r.subject===sub && r.paperKey===pk && r.year===parseInt(yr));
@@ -1808,23 +1581,309 @@ function loadPaper() {
   currentSubject = sub;
   currentPaperKey = pk;
   currentYear = parseInt(yr);
-  // Get year-specific questions if available, fall back to default
-  const paperBase = PAPERS[sub].papers[pk];
-  if (paperBase.yearQuestions && paperBase.yearQuestions[currentYear]) {
-    currentPaperDef = { ...paperBase, questions: paperBase.yearQuestions[currentYear] };
-  } else {
-    currentPaperDef = paperBase;
-  }
   currentBoundaries = null;
 
-  setAccent(sub === 'maths' ? 'm' : sub === 'physics' ? 'p' : 'cs');
+  const _loadCat = SUBJECT_CATALOG[sub];
+  if (_loadCat) {
+    document.documentElement.style.setProperty('--current-accent', _loadCat.color);
+    document.documentElement.style.setProperty('--current-dim', _loadCat.color + '1f');
+  } else setAccent('m');
 
+  // Look up template: built-in (CS P1 2023) > user-saved > none -> builder
+  const tpl = getTemplate(sub, pk, currentYear);
+  const paperBase = getSubjectPapers(sub)[pk] || {};
+  document.getElementById('log-step1b').style.display = 'none';
+  document.getElementById('log-step2').style.display = 'none';
+  if (tpl) {
+    currentPaperDef = { ...paperBase, questions: tpl };
+    buildPaperForm();
+    document.getElementById('log-step2').style.display = 'block';
+    document.getElementById('log-step2').scrollIntoView({behavior:'smooth', block:'start'});
+    fetchBoundaries();
+  } else {
+    showBuilderStep();
+  }
+  msg.textContent = '';
+}
+
+// ═══════════════════════════════════════════════════
+//  TEMPLATE BUILDER
+// ═══════════════════════════════════════════════════
+let _builderState = []; // [{ n, topic, parts:[{l, marks, sub:[{l,marks}]?}] }]
+
+function showBuilderStep() {
+  _builderState = [];
+  switchBuilderTab('manual');
+  document.getElementById('builder-context-label').textContent =
+    `${getSubjectName(currentSubject)} ${currentPaperKey} ${currentYear}`;
+  document.getElementById('builder-info-bar').innerHTML = `
+    <span class="pill">${_esc(getSubjectName(currentSubject))}</span>
+    <span class="pill">${_esc(currentPaperKey)}</span>
+    <span class="pill">${currentYear}</span>
+    <span class="pill">${_esc(getSubjectBoard(currentSubject))}</span>
+    <span style="color:var(--text3);font-family:var(--mono);font-size:11px">No saved template — build one below</span>`;
+  document.getElementById('builder-paste').value = '';
+  document.getElementById('builder-parse-msg').textContent = '';
+  // Seed with one empty question
+  builderAddQuestion();
+  document.getElementById('log-step1b').style.display = 'block';
+  document.getElementById('log-step1b').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function cancelBuilder() {
+  document.getElementById('log-step1b').style.display = 'none';
+  _builderState = [];
+}
+
+function switchBuilderTab(name) {
+  document.querySelectorAll('.builder-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.getElementById('builder-tab-manual').style.display = name === 'manual' ? 'block' : 'none';
+  document.getElementById('builder-tab-paste').style.display = name === 'paste' ? 'block' : 'none';
+}
+
+function builderAddQuestion() {
+  _builderState.push({ topic: '', parts: [{ l: '', marks: 0, sub: null }] });
+  renderBuilder();
+}
+
+function builderRemoveQuestion(qIdx) {
+  _builderState.splice(qIdx, 1);
+  if (_builderState.length === 0) builderAddQuestion();
+  else renderBuilder();
+}
+
+function builderAddPart(qIdx) {
+  const q = _builderState[qIdx];
+  // Next part letter: a, b, c…
+  const usedLetters = q.parts.map(p => (p.l || '').trim().charAt(0)).filter(Boolean);
+  const nextLetter = 'abcdefghijklmnop'.split('').find(l => !usedLetters.includes(l)) || '';
+  // If this is the first sub-part and the only existing part has empty label, replace it
+  if (q.parts.length === 1 && q.parts[0].l === '' && q.parts[0].marks === 0) {
+    q.parts[0].l = nextLetter;
+  } else {
+    q.parts.push({ l: nextLetter, marks: 0, sub: null });
+  }
+  renderBuilder();
+}
+
+function builderRemovePart(qIdx, pIdx) {
+  _builderState[qIdx].parts.splice(pIdx, 1);
+  if (_builderState[qIdx].parts.length === 0) _builderState[qIdx].parts.push({ l: '', marks: 0, sub: null });
+  renderBuilder();
+}
+
+function builderAddSubPart(qIdx, pIdx) {
+  const p = _builderState[qIdx].parts[pIdx];
+  if (!p.sub) p.sub = [];
+  const usedRomans = p.sub.map(s => s.l);
+  const romans = ['i','ii','iii','iv','v','vi','vii','viii','ix','x'];
+  const next = romans.find(r => !usedRomans.includes(r)) || '';
+  p.sub.push({ l: next, marks: 0 });
+  // When a part has sub-parts, its own marks become the sum of sub-parts (not user-entered)
+  p.marks = 0;
+  renderBuilder();
+}
+
+function builderRemoveSubPart(qIdx, pIdx, sIdx) {
+  const p = _builderState[qIdx].parts[pIdx];
+  p.sub.splice(sIdx, 1);
+  if (p.sub.length === 0) p.sub = null;
+  renderBuilder();
+}
+
+function builderSetField(qIdx, field, value, pIdx, sIdx) {
+  if (sIdx !== undefined) {
+    const s = _builderState[qIdx].parts[pIdx].sub[sIdx];
+    if (field === 'l') s.l = value;
+    else if (field === 'marks') s.marks = parseInt(value) || 0;
+  } else if (pIdx !== undefined) {
+    const p = _builderState[qIdx].parts[pIdx];
+    if (field === 'l') p.l = value;
+    else if (field === 'marks') p.marks = parseInt(value) || 0;
+  } else {
+    if (field === 'topic') _builderState[qIdx].topic = value;
+  }
+  updateBuilderSummary();
+}
+
+function renderBuilder() {
+  const container = document.getElementById('builder-questions');
+  const topics = getTopics(currentSubject);
+  let html = '';
+  _builderState.forEach((q, qi) => {
+    const topicOpts = topics.map(t => `<option value="${_esc(t)}"${t===q.topic?' selected':''}>${_esc(t)}</option>`).join('');
+    html += `<div class="builder-q">
+      <div class="builder-q-head">
+        <span class="builder-q-num">Q${qi + 1}</span>
+        <select class="builder-select topic" onchange="builderSetField(${qi},'topic',this.value)">
+          <option value="">— pick a topic —</option>
+          ${topicOpts}
+        </select>
+        <div class="builder-q-actions">
+          <button class="builder-icon-btn" onclick="builderAddPart(${qi})">+ part</button>
+          <button class="builder-icon-btn danger" onclick="builderRemoveQuestion(${qi})">remove Q</button>
+        </div>
+      </div>
+      <div class="builder-parts">`;
+    q.parts.forEach((p, pi) => {
+      const hasSub = p.sub && p.sub.length > 0;
+      html += `<div class="builder-part-row">
+        <span class="builder-part-label">${p.l ? `(${_esc(p.l)})` : '—'}</span>
+        <input class="builder-input mini" type="text" maxlength="3" placeholder="a" value="${_esc(p.l)}" oninput="builderSetField(${qi},'l',this.value,${pi})">
+        <input class="builder-input mini" type="number" min="0" max="999" placeholder="marks" value="${hasSub ? p.sub.reduce((s,x)=>s+(x.marks||0),0) : (p.marks||'')}" ${hasSub?'disabled title="Sum of sub-parts"':''} oninput="builderSetField(${qi},'marks',this.value,${pi})">
+        <button class="builder-icon-btn" onclick="builderAddSubPart(${qi},${pi})">+ sub</button>
+        <button class="builder-icon-btn danger" onclick="builderRemovePart(${qi},${pi})">×</button>
+      </div>`;
+      if (hasSub) {
+        html += `<div class="builder-sub-parts">`;
+        p.sub.forEach((s, si) => {
+          html += `<div class="builder-part-row">
+            <span class="builder-part-label">${p.l ? `(${_esc(p.l)}) ` : ''}${_esc(s.l)})</span>
+            <input class="builder-input mini" type="text" maxlength="4" placeholder="i" value="${_esc(s.l)}" oninput="builderSetField(${qi},'l',this.value,${pi},${si})">
+            <input class="builder-input mini" type="number" min="0" max="999" placeholder="marks" value="${s.marks||''}" oninput="builderSetField(${qi},'marks',this.value,${pi},${si})">
+            <button class="builder-icon-btn danger" onclick="builderRemoveSubPart(${qi},${pi},${si})">×</button>
+          </div>`;
+        });
+        html += `</div>`;
+      }
+    });
+    html += `</div></div>`;
+  });
+  container.innerHTML = html;
+  updateBuilderSummary();
+}
+
+function updateBuilderSummary() {
+  const el = document.getElementById('builder-summary');
+  let totalMarks = 0;
+  let leaves = 0;
+  let missingTopic = 0;
+  _builderState.forEach(q => {
+    if (!q.topic) missingTopic++;
+    q.parts.forEach(p => {
+      if (p.sub && p.sub.length) {
+        p.sub.forEach(s => { totalMarks += (s.marks || 0); leaves++; });
+      } else {
+        totalMarks += (p.marks || 0);
+        leaves++;
+      }
+    });
+  });
+  const expectedTotal = PAPERS[currentSubject]?.papers?.[currentPaperKey]?.totalMarks;
+  let msg = `${_builderState.length} question${_builderState.length!==1?'s':''}, ${leaves} markable part${leaves!==1?'s':''}, ${totalMarks} marks total`;
+  if (expectedTotal && totalMarks !== expectedTotal) {
+    msg += ` · expected ${expectedTotal}`;
+    el.className = 'builder-summary warn';
+  } else if (missingTopic > 0) {
+    msg += ` · ${missingTopic} question${missingTopic!==1?'s':''} missing topic`;
+    el.className = 'builder-summary warn';
+  } else if (totalMarks > 0 && leaves > 0) {
+    el.className = 'builder-summary ok';
+  } else {
+    el.className = 'builder-summary';
+  }
+  el.textContent = msg;
+}
+
+// Parse pasted mark-scheme text into _builderState
+function builderParsePaste() {
+  const txt = document.getElementById('builder-paste').value;
+  const msgEl = document.getElementById('builder-parse-msg');
+  const knownTopics = getTopics(currentSubject);
+  const lines = txt.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (lines.length === 0) { msgEl.textContent = 'Paste some rows first.'; return; }
+
+  // Group by question number to assemble the structure
+  const byQ = new Map();
+  let errors = 0;
+  for (const raw of lines) {
+    // Split on comma, allowing topic names to contain & etc.
+    const parts = raw.split(',').map(s => s.trim());
+    if (parts.length < 3) { errors++; continue; }
+    const marks = parseInt(parts[parts.length - 1], 10);
+    if (isNaN(marks)) { errors++; continue; }
+    // label = first chunk, topic = everything between (joined back)
+    const label = parts[0].replace(/^Q/i, '').trim();
+    const topic = parts.slice(1, -1).join(',').trim();
+    // Parse label into question / part / sub-part
+    // Accepts: "1", "1a", "1 a", "1b i", "1b ii", "3b i"
+    const m = label.match(/^(\d+)\s*([a-z])?\s*(i{1,3}|iv|v|vi{0,3}|ix|x)?$/i);
+    if (!m) { errors++; continue; }
+    const qn = parseInt(m[1], 10);
+    const partL = (m[2] || '').toLowerCase();
+    const subL = (m[3] || '').toLowerCase();
+    if (!byQ.has(qn)) byQ.set(qn, { n: qn, topic: '', parts: [] });
+    const q = byQ.get(qn);
+    if (topic && !q.topic) q.topic = topic;
+    if (!partL && !subL) {
+      q.parts.push({ l: '', marks, sub: null });
+    } else {
+      let p = q.parts.find(x => x.l === partL);
+      if (!p) { p = { l: partL, marks: 0, sub: null }; q.parts.push(p); }
+      if (subL) {
+        if (!p.sub) p.sub = [];
+        p.sub.push({ l: subL, marks });
+      } else {
+        p.marks = marks;
+      }
+    }
+  }
+
+  if (byQ.size === 0) { msgEl.textContent = `Could not parse any rows. Check format: 'label, topic, marks'.`; return; }
+
+  // Match topics fuzzily against known list (case-insensitive)
+  const lowMap = new Map(knownTopics.map(t => [t.toLowerCase(), t]));
+  for (const q of byQ.values()) {
+    const matched = lowMap.get((q.topic || '').toLowerCase());
+    if (matched) q.topic = matched;
+  }
+
+  _builderState = Array.from(byQ.values()).sort((a, b) => a.n - b.n).map(q => ({ topic: q.topic, parts: q.parts }));
+  switchBuilderTab('manual');
+  renderBuilder();
+  msgEl.textContent = errors > 0 ? `Parsed ${byQ.size} questions (${errors} row${errors!==1?'s':''} skipped).` : `Parsed ${byQ.size} questions.`;
+}
+
+// Convert _builderState into the canonical question array used by buildPaperForm
+function _flattenBuilderState() {
+  let nextQn = 1;
+  const out = [];
+  for (const q of _builderState) {
+    if (!q.topic) return { error: 'Every question needs a topic.' };
+    const flatParts = [];
+    for (const p of q.parts) {
+      if (p.sub && p.sub.length) {
+        for (const s of p.sub) {
+          if (!s.l) return { error: `Q${nextQn} sub-part label can't be blank.` };
+          if (s.marks <= 0) return { error: `Q${nextQn}${p.l?' '+p.l:''} ${s.l} needs a marks value.` };
+          flatParts.push({ l: `${p.l} ${s.l}`.trim(), marks: s.marks });
+        }
+      } else {
+        if (p.marks <= 0) return { error: `Q${nextQn}${p.l?' '+p.l:''} needs a marks value.` };
+        flatParts.push({ l: p.l, marks: p.marks });
+      }
+    }
+    if (flatParts.length === 0) return { error: `Q${nextQn} has no parts.` };
+    out.push({ n: nextQn, topic: q.topic, subtopic: '', parts: flatParts });
+    nextQn++;
+  }
+  if (out.length === 0) return { error: 'Add at least one question.' };
+  return { questions: out };
+}
+
+function saveBuilderTemplate() {
+  const res = _flattenBuilderState();
+  if (res.error) { toast(res.error, 'error'); return; }
+  saveTemplate(currentSubject, currentPaperKey, currentYear, res.questions);
+  toast('Template saved.', 'success');
+  // Transition straight to mark entry
+  const paperBase = PAPERS[currentSubject].papers[currentPaperKey];
+  currentPaperDef = { ...paperBase, questions: res.questions };
+  document.getElementById('log-step1b').style.display = 'none';
   buildPaperForm();
   document.getElementById('log-step2').style.display = 'block';
   document.getElementById('log-step2').scrollIntoView({behavior:'smooth', block:'start'});
-
   fetchBoundaries();
-  msg.textContent = '';
 }
 
 // ═══════════════════════════════════════════════════
@@ -1832,21 +1891,23 @@ function loadPaper() {
 // ═══════════════════════════════════════════════════
 function buildPaperForm() {
   const def = currentPaperDef;
-  const sub = PAPERS[currentSubject];
+  const subName = getSubjectName(currentSubject);
+  const subBoard = getSubjectBoard(currentSubject);
 
-  // Info strip — direct PMT link for this year's paper
-  const paperBase = PAPERS[currentSubject].papers[currentPaperKey];
-  const directUrl = paperBase.pmtDirectLinks?.[currentYear] || `https://www.physicsandmathstutor.com/past-papers/${def.pmtPath}`;
+  // Info strip — direct PMT link for this year's paper (only for built-in subjects)
+  const paperBase = getSubjectPapers(currentSubject)[currentPaperKey] || {};
+  const directUrl = paperBase.pmtDirectLinks?.[currentYear]
+    || (def.pmtPath ? `https://www.physicsandmathstutor.com/past-papers/${def.pmtPath}` : null);
   // Compute total marks dynamically from the actual questions loaded
   const computedTotal = def.questions.reduce((s,q) => s + q.parts.reduce((ps,p) => ps+p.marks,0), 0);
 
   document.getElementById('paper-info-bar').innerHTML = `
-    <span class="pill">${sub.name}</span>
-    <span class="pill">${currentPaperKey}</span>
+    <span class="pill">${_esc(subName)}</span>
+    <span class="pill">${_esc(currentPaperKey)}</span>
     <span class="pill">${currentYear}</span>
-    <span class="pill">${sub.board}</span>
+    ${subBoard ? `<span class="pill">${_esc(subBoard)}</span>` : ''}
     <span style="color:var(--text3);font-family:var(--mono);font-size:11px">${computedTotal} marks</span>
-    <a href="${directUrl}" target="_blank" class="pmt-link">Open on PMT ↗</a>
+    ${directUrl ? `<a href="${_esc(directUrl)}" target="_blank" class="pmt-link">Open on PMT ↗</a>` : ''}
   `;
 
   const tbody = document.getElementById('q-tbody');
@@ -1880,6 +1941,7 @@ function buildPaperForm() {
         `;
         tbody.appendChild(tr);
         const inp = tr.querySelector('input');
+        inp.dataset.inputIdx = allInputRefs.length;
         allInputRefs.push(inp);
         setupInput(inp, part.marks);
       });
@@ -1896,6 +1958,7 @@ function buildPaperForm() {
       `;
       tbody.appendChild(tr);
       const inp = tr.querySelector('input');
+      inp.dataset.inputIdx = allInputRefs.length;
       allInputRefs.push(inp);
       setupInput(inp, part.marks);
     }
@@ -1931,7 +1994,7 @@ function setupInput(inp, maxMarks) {
       inp.dispatchEvent(new Event('input'));
 
       // Try to auto-advance if this value could not be extended further
-      const idx = allInputRefs.indexOf(inp);
+      const idx = parseInt(inp.dataset.inputIdx);
       const curVal = parseInt(inp.value);
       // Advance if: typed 0 on a 0-max question, value is max, or value can't be extended
       const shouldAdvance = inp.value !== '' && (
@@ -1951,15 +2014,15 @@ function setupInput(inp, maxMarks) {
       // allow default tab behaviour
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      const idx = allInputRefs.indexOf(inp);
+      const idx = parseInt(inp.dataset.inputIdx);
       if (idx < allInputRefs.length - 1) allInputRefs[idx + 1].focus();
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
-      const idx = allInputRefs.indexOf(inp);
+      const idx = parseInt(inp.dataset.inputIdx);
       if (idx < allInputRefs.length - 1) allInputRefs[idx + 1].focus();
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      const idx = allInputRefs.indexOf(inp);
+      const idx = parseInt(inp.dataset.inputIdx);
       if (idx > 0) allInputRefs[idx - 1].focus();
     }
   });
@@ -2032,8 +2095,6 @@ async function fetchBoundaries() {
   const sub = currentSubject;
   const pk = currentPaperKey;
   const yr = currentYear;
-
-  await new Promise(r => setTimeout(r, 400)); // brief delay for feel
 
   const b = KNOWN_BOUNDARIES[sub]?.[pk]?.[yr];
   if (b) {
@@ -2131,7 +2192,7 @@ function savePaper() {
   db.records.push(record);
   saveDB(db);
 
-  toast(`✓ ${PAPERS[currentSubject].name} ${currentPaperKey} ${currentYear} saved! Grade: ${record.grade}`, 'success');
+  toast(`✓ ${getSubjectName(currentSubject)} ${currentPaperKey} ${currentYear} saved! Grade: ${record.grade}`, 'success');
 
   // Reset
   setTimeout(() => {
@@ -2196,9 +2257,9 @@ function renderDashboard() {
     html += `
       <div class="paper-entry" onclick="openReview(${r.id})">
         <span class="paper-entry-badge" style="background:${rColor}1f;color:${rColor}">${r.year}</span>
-        <div class="paper-entry-name">${rName} — ${r.paperKey}<small>${new Date(r.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</small></div>
+        <div class="paper-entry-name">${_esc(rName)} — ${_esc(r.paperKey)}<small>${new Date(r.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</small></div>
         <div class="paper-entry-score" style="color:${rColor}">${pct}%</div>
-        <div class="paper-entry-grade">${r.grade || '—'}</div>
+        <div class="paper-entry-grade">${_esc(r.grade || '—')}</div>
       </div>`;
   });
   html += '</div></div>';
@@ -2241,10 +2302,10 @@ function renderHistory(sub) {
     html += `
       <div class="paper-entry" onclick="openReview(${r.id})">
         <span class="paper-entry-badge" style="background:${subColor}1f;color:${subColor}">${r.year}</span>
-        <div class="paper-entry-name">${r.paperKey}${paperTitle ? ' — '+paperTitle : ''}<small>Logged ${new Date(r.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</small></div>
-        <div style="font-family:var(--mono);font-size:13px;color:var(--text3)">${r.totalScored}/${r.totalAvail}</div>
+        <div class="paper-entry-name">${_esc(r.paperKey)}${paperTitle ? ' — '+_esc(paperTitle) : ''}<small>Logged ${new Date(r.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</small></div>
+        <div style="font-family:var(--mono);font-size:13px;color:var(--text3)">${parseInt(r.totalScored)||0}/${parseInt(r.totalAvail)||0}</div>
         <div class="paper-entry-score" style="color:${subColor}">${pct}%</div>
-        <div class="paper-entry-grade" style="color:${gradeColor}">${r.grade || '—'}</div>
+        <div class="paper-entry-grade" style="color:${gradeColor}">${_esc(r.grade || '—')}</div>
         <button class="paper-entry-delete" title="Delete" onclick="event.stopPropagation();deletePaper(${r.id})">✕</button>
       </div>`;
   });
@@ -2275,9 +2336,10 @@ function openReview(id) {
   const r = db.records.find(x => x.id === id);
   if (!r) return;
 
-  const sub = PAPERS[r.subject];
+  const sub = { name: getSubjectName(r.subject) };
   const pct = r.totalAvail > 0 ? Math.round(r.totalScored/r.totalAvail*100) : 0;
-  const accentVar = r.subject==='maths'?'--accent-m':r.subject==='physics'?'--accent-p':'--accent-cs';
+  const _revCat = SUBJECT_CATALOG[r.subject];
+  const accentColor = _revCat?.color || (r.subject==='maths'?'#f5c542':r.subject==='physics'?'#4fc3f7':'#a8e6a3');
 
   // Group scores by question
   const byQ = {};
@@ -2296,7 +2358,7 @@ function openReview(id) {
     rowsHtml += `
       <tr>
         <td style="font-family:var(--mono);font-size:12px;color:var(--text2)">${qLabel}</td>
-        <td style="font-size:12px">${qData.topic}<br><small style="color:var(--text3);font-family:var(--mono)">${qData.subtopic}</small></td>
+        <td style="font-size:12px">${_esc(qData.topic)}<br><small style="color:var(--text3);font-family:var(--mono)">${_esc(qData.subtopic)}</small></td>
         <td style="font-family:var(--mono);font-size:13px;color:${color};text-align:center">${qData.scored}/${qData.total}</td>
       </tr>`;
   });
@@ -2310,11 +2372,11 @@ function openReview(id) {
     });
   }
 
-  document.getElementById('rm-title').innerHTML = `${sub.name} ${r.paperKey} <span style="color:var(${accentVar})">${r.year}</span>`;
+  document.getElementById('rm-title').innerHTML = `${sub.name} ${_esc(r.paperKey)} <span style="color:${accentColor}">${r.year}</span>`;
   document.getElementById('rm-content').innerHTML = `
     <div class="flex" style="gap:16px;margin-bottom:18px">
-      <div style="text-align:center"><div style="font-family:var(--serif);font-size:36px;color:var(${accentVar})">${pct}%</div><div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase">Score</div></div>
-      <div style="text-align:center"><div style="font-family:var(--serif);font-size:36px;color:var(${accentVar})">${r.grade||'—'}</div><div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase">Grade</div></div>
+      <div style="text-align:center"><div style="font-family:var(--serif);font-size:36px;color:${accentColor}">${pct}%</div><div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase">Score</div></div>
+      <div style="text-align:center"><div style="font-family:var(--serif);font-size:36px;color:${accentColor}">${_esc(r.grade||'—')}</div><div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase">Grade</div></div>
       <div style="text-align:center"><div style="font-family:var(--serif);font-size:36px;color:var(--text2)">${r.totalScored}/${r.totalAvail}</div><div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase">Marks</div></div>
     </div>
     ${boundaryHtml ? `<div class="grade-row" style="margin-bottom:16px">${boundaryHtml}</div>` : ''}
@@ -2331,6 +2393,12 @@ function closeModal() {
 }
 document.getElementById('review-modal').addEventListener('click', e => {
   if (e.target === document.getElementById('review-modal')) closeModal();
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (document.getElementById('review-modal').classList.contains('open')) { closeModal(); return; }
+  if (document.getElementById('login-overlay').classList.contains('open')) { dismissLoginOverlay(); return; }
+  if (document.getElementById('onboarding').classList.contains('open')) return; // onboarding must be completed
 });
 
 // ═══════════════════════════════════════════════════
@@ -2800,9 +2868,6 @@ function renderOnboardingGrid() {
       <div class="s-dot" style="background:${cat.color}"></div>
       <div class="s-name">${cat.name}</div>
       <div class="s-board">${cat.board}</div>
-      <span class="s-impl-badge${cat.implemented?' live':''}">
-        ${cat.implemented ? '✓ Full data' : 'Coming soon'}
-      </span>
       <div class="s-check">✓</div>`;
     grid.appendChild(card);
   });
@@ -2903,6 +2968,26 @@ function renderSettings() {
       <button class="btn btn-primary" onclick="saveSubjectSettings()">Save Subjects</button>
     </div>`;
 
+  // ── Topic tags ───────────────────────────────────────
+  html += `
+    <div class="settings-section">
+      <div class="settings-section-title">Topic Tags</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.6">
+        Topics you can pick when building a paper template. Used to highlight weak areas across attempts.
+      </p>
+      <div id="settings-topics-grid"></div>
+    </div>`;
+
+  // ── Templates ────────────────────────────────────────
+  html += `
+    <div class="settings-section">
+      <div class="settings-section-title">Saved Paper Templates</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:12px;line-height:1.6">
+        Question structures you've built. Delete a template to re-build it next time you log that paper.
+      </p>
+      <div id="settings-templates-list"></div>
+    </div>`;
+
   // ── Data ─────────────────────────────────────────────
   html += `
     <div class="settings-section">
@@ -2932,7 +3017,98 @@ function renderSettings() {
 
   el.innerHTML = html;
   renderSettingsSubjectGrid();
+  renderSettingsTopics();
+  renderSettingsTemplates();
+}
 
+function renderSettingsTopics() {
+  const grid = document.getElementById('settings-topics-grid');
+  if (!grid) return;
+  const subjects = getSelectedSubjects();
+  let html = '';
+  subjects.forEach(sub => {
+    const cat = SUBJECT_CATALOG[sub];
+    if (!cat) return;
+    const topics = getTopics(sub);
+    const chips = topics.map((t, i) => `
+      <span class="topic-chip" style="border-color:${cat.color}33">
+        ${_esc(t)}
+        <button title="Remove" onclick="removeTopic('${sub}', ${i})">×</button>
+      </span>`).join('');
+    html += `<div class="topics-editor-subj">
+      <div class="topics-editor-head" style="color:${cat.color}">
+        <span style="width:8px;height:8px;border-radius:50%;background:${cat.color};display:inline-block"></span>
+        ${_esc(cat.name)}
+        <span style="color:var(--text3);margin-left:auto;text-transform:none;letter-spacing:0">${topics.length} topic${topics.length!==1?'s':''}</span>
+      </div>
+      <div class="topics-chips" id="chips-${sub}">${chips || '<span class="text-muted text-sm">No topics yet — add some below.</span>'}</div>
+      <div class="topic-add-row">
+        <input type="text" id="topic-add-${sub}" placeholder="New topic name…" onkeydown="if(event.key==='Enter'){addTopic('${sub}');}">
+        <button class="btn btn-ghost" onclick="addTopic('${sub}')">+ Add</button>
+      </div>
+    </div>`;
+  });
+  grid.innerHTML = html || '<div class="text-muted text-sm">Select subjects above to manage their topics.</div>';
+}
+
+function addTopic(sub) {
+  const inp = document.getElementById('topic-add-' + sub);
+  const val = inp.value.trim();
+  if (!val) return;
+  const list = getTopics(sub);
+  if (list.some(t => t.toLowerCase() === val.toLowerCase())) {
+    toast('Topic already exists.', 'info');
+    return;
+  }
+  list.push(val);
+  saveTopics(sub, list);
+  inp.value = '';
+  renderSettingsTopics();
+}
+
+function removeTopic(sub, idx) {
+  const list = getTopics(sub);
+  list.splice(idx, 1);
+  saveTopics(sub, list);
+  renderSettingsTopics();
+}
+
+function renderSettingsTemplates() {
+  const el = document.getElementById('settings-templates-list');
+  if (!el) return;
+  const t = getTemplates();
+  const rows = [];
+  Object.entries(t).forEach(([sub, papers]) => {
+    Object.entries(papers).forEach(([pk, years]) => {
+      Object.entries(years).forEach(([yr, qs]) => {
+        rows.push({ sub, pk, yr, count: qs.length });
+      });
+    });
+  });
+  if (rows.length === 0) {
+    el.innerHTML = '<div class="text-muted text-sm">No user templates yet. They\'re created when you log a paper without a built-in template.</div>';
+    return;
+  }
+  rows.sort((a, b) => a.sub.localeCompare(b.sub) || a.pk.localeCompare(b.pk) || a.yr - b.yr);
+  el.innerHTML = rows.map(r => {
+    const cat = SUBJECT_CATALOG[r.sub] || PAPERS[r.sub];
+    const color = cat?.color || '#888';
+    const name = cat?.name || r.sub;
+    return `<div class="settings-row">
+      <div class="settings-row-left">
+        <div class="settings-row-label"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-right:8px"></span>${_esc(name)} — ${_esc(r.pk)} ${r.yr}</div>
+        <div class="settings-row-sub">${r.count} question${r.count!==1?'s':''}</div>
+      </div>
+      <button class="btn btn-ghost" onclick="confirmDeleteTemplate('${r.sub}','${_esc(r.pk).replace(/'/g,"\\\\'")}',${r.yr})">Delete</button>
+    </div>`;
+  }).join('');
+}
+
+function confirmDeleteTemplate(sub, pk, yr) {
+  if (!confirm(`Delete template for ${SUBJECT_CATALOG[sub]?.name || sub} ${pk} ${yr}? Logged attempts are kept.`)) return;
+  deleteTemplate(sub, pk, parseInt(yr));
+  renderSettingsTemplates();
+  toast('Template deleted.', 'info');
 }
 
 function renderSettingsSubjectGrid() {
@@ -2951,9 +3127,6 @@ function renderSettingsSubjectGrid() {
       <div class="s-dot" style="background:${cat.color}"></div>
       <div class="s-name">${cat.name}</div>
       <div class="s-board">${cat.board}</div>
-      <span class="s-impl-badge${cat.implemented?' live':''}">
-        ${cat.implemented ? '✓ Full data' : 'Coming soon'}
-      </span>
       <div class="s-check">✓</div>`;
     grid.appendChild(card);
   });
@@ -2998,53 +3171,15 @@ function populateSubjectSelector() {
 }
 
 // ═══════════════════════════════════════════════════
-//  PMT PROMPT HINT
+//  CANVAS RESIZE
 // ═══════════════════════════════════════════════════
-function showPMTPromptHint() {
-  document.getElementById('rm-title').textContent = 'Generate Paper Data with Claude';
-  document.getElementById('rm-content').innerHTML = `
-    <p style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.6">
-      Copy the prompt below into Claude in your VS Code chat window. Claude will fetch the mark scheme
-      from PMT and output the exact JavaScript structure to paste into this app.
-    </p>
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;font-family:var(--mono);font-size:11px;color:var(--text2);white-space:pre-wrap;line-height:1.7;max-height:340px;overflow-y:auto;user-select:all" id="pmt-prompt-text">${getPMTPromptText().replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
-    <div class="flex mt16" style="gap:8px">
-      <button class="btn btn-primary" onclick="navigator.clipboard.writeText(getPMTPromptText()).then(()=>toast('Prompt copied!','success'))">Copy Prompt</button>
-    </div>`;
-  document.getElementById('review-modal').classList.add('open');
-}
-
-function getPMTPromptText() {
-return `I need accurate past paper question data for PaperTrack.
-
-Subject: [e.g. Chemistry OCR A]
-Paper: [e.g. Paper 1 — Breadth in Chemistry]
-Year: [e.g. 2023]
-
-Step 1 — Fetch the mark scheme from PMT using WebFetch on the PDF viewer URL:
-  https://www.physicsandmathstutor.com/past-papers/a-level-chemistry/ocr-paper-1/
-  (Navigate to the correct subject/paper page and find the mark scheme PDF link)
-
-Step 2 — From the mark scheme, extract every question, part label, and mark allocation.
-  For each question identify: main topic (spec heading) and a short subtopic description.
-
-Step 3 — Output ONLY the following JavaScript snippet (no prose, no markdown fences):
-
-// [Subject] [Paper] [Year]
-[YEAR]: [
-  { n:1, topic:'Topic Name', subtopic:'Brief description',
-    parts:[{l:'a',marks:3},{l:'b i',marks:2},{l:'b ii',marks:4}] },
-  { n:2, topic:'Topic Name', subtopic:'Brief description',
-    parts:[{l:'',marks:5}] },
-],
-
-Rules:
-- Use {l:'',marks:N} for whole questions with no sub-part label
-- Part labels must exactly match the mark scheme (e.g. 'a', 'b i', 'b ii', 'c', 'd i')
-- Verify all marks sum to the correct paper total
-- Topic names should match the official specification headings
-- If the PDF cannot be fetched, ask me to paste the mark scheme text`;
-}
+let _chartResizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(_chartResizeTimer);
+  _chartResizeTimer = setTimeout(() => {
+    if (document.getElementById('view-analytics')?.classList.contains('active')) renderAnalytics();
+  }, 250);
+});
 
 // ═══════════════════════════════════════════════════
 //  INIT
