@@ -397,6 +397,11 @@
   .builder-input.mini { width: 60px; text-align: center; font-family: var(--mono); }
   .builder-input.topic { flex: 1; min-width: 180px; }
   .builder-q-actions { margin-left: auto; display: flex; gap: 6px; }
+  .builder-auto-tag {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--current-accent); background: var(--current-dim); border: 1px solid var(--border);
+    padding: 3px 7px; border-radius: 3px; cursor: help;
+  }
   .builder-icon-btn {
     background: transparent; border: 1px solid var(--border); color: var(--text2);
     font-family: var(--mono); font-size: 11px; padding: 4px 10px; border-radius: 4px;
@@ -1456,6 +1461,155 @@ function saveTopics(subject, list) {
   catch { toast('Could not save topics — storage may be full.', 'error'); }
 }
 
+// ─── TOPIC PREDICTION — built-in keyword dictionaries per subject ───
+// Each topic gets a list of keywords/keyphrases. Multi-word phrases weigh
+// more (more specific). Topic names themselves are also auto-tokenised at
+// match time, so e.g. "Boolean Algebra & Logic" auto-contributes
+// "boolean", "algebra", "logic" even without explicit entries here.
+const TOPIC_KEYWORDS = {
+  cs: {
+    'CPU & Architecture': ['cpu','fetch','decode','execute','pipelining','register','risc','cisc','von neumann','harvard','fde','alu','clock speed','instruction set','accumulator','program counter','mar','mdr','cir'],
+    'Memory & Storage': ['ram','rom','flash','virtual memory','paging','primary storage','secondary storage','solid state','magnetic disk','optical disk','cache'],
+    'Operating Systems': ['operating system','interrupt','scheduling','kernel','bios','multi-tasking','memory management','device driver','round robin','first come first served'],
+    'Networks & Protocols': ['network','tcp','tcp/ip','protocol','firewall','packet','lan','wan','wifi','ethernet','dns','dhcp','client-server','peer-to-peer','encryption','ssl','https','router','switch'],
+    'Databases & SQL': ['database','sql','primary key','foreign key','normalisation','acid','query','relational','referential integrity','transaction','locking','select','insert','update','delete from','join'],
+    'Representation of Data': ['binary','hexadecimal','floating point','two’s complement','two\'s complement','sign and magnitude','bit shift','ascii','unicode','denary','base conversion','character set','mantissa','exponent','normalisation'],
+    'Boolean Algebra & Logic': ['boolean','truth table','karnaugh','logic gate','de morgan','nand','nor','xor','adder','flip-flop','d-type','half adder','full adder'],
+    'Programming': ['pseudocode','parameter','file handling','scope','local variable','global variable','pass by reference','pass by value','endfunction','endprocedure','data type','integer','string','array variable','indentation','syntax error'],
+    'Algorithms': ['algorithm','sort','search','binary search','linear search','insertion sort','merge sort','quick sort','bubble sort','dijkstra','a star','a*','breadth-first','depth-first','traversal','shortest path','divide and conquer'],
+    'Data Structures': ['stack','queue','tree','linked list','binary tree','hash table','graph','circular queue','pointer','node','head pointer','tail pointer','dequeue','enqueue','push','pop','adjacency','traversal','headpointer','freelistpointer','queuehead','queuetail'],
+    'OOP': ['object-oriented','class','encapsulation','inheritance','polymorphism','constructor','method','attribute','instance','get method','set method','getter','setter','superclass','subclass','private','public','protected'],
+    'Recursion': ['recursion','recursive','base case','recurrence','call stack','stack overflow'],
+    'Big O & Complexity': ['big o','complexity','time complexity','space complexity','asymptotic','linear time','quadratic time','logarithmic','o(n)','o(log n)','o(n^2)'],
+    'Legislation & Ethics': ['legislation','data protection act','dpa','computer misuse','cma','cdpa','ripa','copyright','privacy','gdpr','ethical issue','legal issue'],
+    'Computational Thinking': ['decomposition','abstraction','problem recognition','computational thinking','data mining','simulation','thinking ahead','thinking procedurally','thinking concurrently'],
+  },
+  maths: {
+    'Algebra & Functions': ['algebra','partial fractions','binomial expansion','binomial theorem','factorise','simplify','modulus','inverse function','composite function','transformation','quadratic','polynomial'],
+    'Coordinate Geometry': ['coordinate geometry','circle','equation of a line','tangent','normal to the curve','parametric equation','perpendicular','gradient'],
+    'Sequences & Series': ['sequence','series','arithmetic series','geometric series','sigma','recurrence relation','convergent','divergent','sum to infinity','common difference','common ratio'],
+    'Trigonometry': ['trigonometry','sin','cos','tan','sine rule','cosine rule','identity','radian','compound angle','double angle','r sin','small angle'],
+    'Exponentials & Logs': ['exponential','logarithm','natural log','ln','log base','growth','decay','exponential model'],
+    'Differentiation': ['differentiate','derivative','chain rule','product rule','quotient rule','implicit differentiation','stationary point','optimisation','rate of change','second derivative'],
+    'Integration': ['integrate','integration','definite integral','indefinite integral','integration by parts','integration by substitution','volume of revolution','area under the curve','area bounded'],
+    'Numerical Methods': ['newton-raphson','trapezium rule','iteration','iterate','staircase','cobweb','fixed point','change of sign'],
+    'Vectors': ['vector','position vector','scalar product','dot product','collinear','magnitude','unit vector','i j k'],
+    'Proof': ['proof','prove','contradiction','induction','deduction','counterexample','disprove'],
+    'Statistics': ['probability','distribution','normal distribution','binomial distribution','hypothesis test','significance level','correlation','regression','large data set','sample','mean','median','standard deviation','variance','conditional probability'],
+    'Mechanics': ['mechanics','suvat','newton','momentum','friction','projectile','equilibrium','tension','reaction force','impulse','kinematics','centre of mass','moment','coefficient of friction'],
+  },
+  physics: {
+    'Mechanics — Forces & Motion': ['suvat','newton','momentum','impulse','kinematics','acceleration','velocity','displacement','projectile','free fall','terminal velocity','moment','equilibrium','stopping distance'],
+    'Mechanics — Circular Motion': ['circular motion','angular velocity','centripetal','radius of orbit','period of rotation','revolution'],
+    'Materials': ['young\'s modulus','stress','strain','hooke','elastic','plastic deformation','tensile','spring constant','breaking stress'],
+    'Waves': ['wave','wavelength','frequency','amplitude','diffraction','interference','superposition','standing wave','polarisation','refractive index','snell','transverse','longitudinal'],
+    'Quantum Physics': ['photon','photoelectric','de broglie','wave-particle','quantum','planck','threshold frequency','work function','electron volt'],
+    'Electricity': ['current','voltage','resistance','ohm','kirchhoff','resistor','emf','potential difference','circuit','resistivity','i-v characteristic'],
+    'Magnetic Fields': ['magnetic','flux','flux density','induction','faraday','lenz','solenoid','electromagnetic induction','transformer'],
+    'Capacitors': ['capacitor','capacitance','farad','dielectric','time constant','charging','discharging','rc circuit'],
+    'Thermal Physics': ['thermal','temperature','specific heat capacity','latent heat','internal energy','ideal gas','kinetic theory','boltzmann','absolute zero'],
+    'Nuclear Physics': ['nuclear','radioactive','half-life','alpha particle','beta particle','gamma ray','decay','isotope','binding energy','fission','fusion','radon'],
+    'Gravitational Fields': ['gravitational','newton\'s law of gravitation','orbit','satellite','escape velocity','gravitational potential','keplers'],
+    'Astrophysics': ['astrophysics','star','stellar','luminosity','parsec','parallax','h-r diagram','supernova','black hole','red giant','white dwarf'],
+    'Cosmology': ['cosmology','hubble','big bang','redshift','dark matter','dark energy','expansion of the universe','microwave background','cosmological'],
+    'Practical Skills': ['uncertainty','random error','systematic error','accuracy','precision','calibration','significant figures','percentage uncertainty'],
+  },
+};
+
+const _STOPWORDS = new Set(['the','a','an','of','to','in','on','at','for','and','or','but','is','are','was','were','be','been','being','this','that','these','those','it','its','as','by','from','with','about','into','out','up','down','over','under','use','used','using','can','will','would','could','should','may','might','must','have','has','had','do','does','did','done','one','two','three','four','five','six','seven','eight','nine','ten','some','any','all','no','not','only','also','then','than','if','so','what','which','who','when','where','why','how','their','there','here','his','her','him','she','he','they','them','we','us','you','your','our','my','me','i','give','show','state','describe','explain','identify','name','write','complete','section','question','figure','fig','page','blank','please','note','answer','below','above','following','shown','part','parts','marks','total','total','space','line','code','program','programs','example','examples','rules','rule','table','data','value','values','set']);
+
+// localStorage: papertrack_learned -> { subject -> { topic -> { word -> count } } }
+function getLearnedKeywords() {
+  try { return JSON.parse(localStorage.getItem('papertrack_learned') || '{}'); } catch { return {}; }
+}
+function saveLearnedKeywords(data) {
+  try { localStorage.setItem('papertrack_learned', JSON.stringify(data)); } catch {}
+}
+
+// Topic-name auto-tokens are a safety net for topics with sparse explicit keywords.
+// Min length 5 so we skip ultra-generic words like "data", "type", "code", "info".
+function _topicNameTokens(topic) {
+  const banned = new Set(['data','code','type','info','item','name','main','part','word','area','step','time','file','task','user','term','rule']);
+  return topic.toLowerCase().split(/[^a-z0-9]+/).filter(t => t.length >= 5 && !_STOPWORDS.has(t) && !banned.has(t));
+}
+
+function _kwWeight(kw) {
+  // Multi-word phrases and longer keywords matter more
+  const base = 0.5 + Math.min(1.5, kw.length / 10);
+  return base + (kw.indexOf(' ') !== -1 ? 0.5 : 0);
+}
+
+function _normalizeForMatch(s) {
+  return s.toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function _countMatches(text, kw) {
+  // text is already lowercased and space-padded; kw must be normalised by caller
+  let pos = 0, count = 0;
+  while ((pos = text.indexOf(kw, pos)) !== -1) {
+    const before = text.charAt(pos - 1);
+    const after = text.charAt(pos + kw.length);
+    if (!/[a-z0-9]/.test(before) && !/[a-z0-9]/.test(after)) count++;
+    pos += kw.length;
+  }
+  return count;
+}
+
+function predictTopic(text, subject) {
+  if (!text) return null;
+  const userTopics = getTopics(subject);
+  if (userTopics.length === 0) return null;
+  const dict = TOPIC_KEYWORDS[subject] || {};
+  const learned = (getLearnedKeywords()[subject] || {});
+  const haystack = ' ' + text.toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ') + ' ';
+
+  const scores = userTopics.map(topic => {
+    const builtIn = dict[topic] || [];
+    const nameTokens = _topicNameTokens(topic);
+    let score = 0;
+    const seen = new Set();
+    for (const kw of [...builtIn, ...nameTokens]) {
+      const lkw = _normalizeForMatch(kw);
+      if (!lkw || seen.has(lkw)) continue; seen.add(lkw);
+      const hits = _countMatches(haystack, lkw);
+      if (hits > 0) score += Math.min(hits, 3) * _kwWeight(lkw);
+    }
+    // Learned keywords: weight by recorded frequency (capped to 5x)
+    const learnedTopic = learned[topic] || {};
+    for (const [word, freq] of Object.entries(learnedTopic)) {
+      const lkw = _normalizeForMatch(word);
+      if (!lkw || seen.has(lkw)) continue;
+      const hits = _countMatches(haystack, lkw);
+      if (hits > 0) score += Math.min(hits, 3) * Math.min(5, freq) * 0.4;
+    }
+    return { topic, score };
+  }).filter(x => x.score > 0).sort((a, b) => b.score - a.score);
+
+  if (scores.length === 0) return null;
+  // Clear winner: top score has at least 1.5 (i.e. one strong hit) AND beats #2 by 30%+
+  if (scores.length === 1) return scores[0].score >= 1.5 ? scores[0].topic : null;
+  if (scores[0].score >= 1.5 && scores[0].score > scores[1].score * 1.3) return scores[0].topic;
+  return null;
+}
+
+function learnFromCorrection(subject, topic, text) {
+  if (!subject || !topic || !text) return;
+  const tokens = text.toLowerCase().split(/[^a-z0-9]+/).filter(t => t.length >= 4 && !_STOPWORDS.has(t) && !/^\d+$/.test(t));
+  if (tokens.length === 0) return;
+  const data = getLearnedKeywords();
+  if (!data[subject]) data[subject] = {};
+  if (!data[subject][topic]) data[subject][topic] = {};
+  const bag = data[subject][topic];
+  // Per-question dedupe (a word counts at most once per correction)
+  for (const tok of new Set(tokens)) {
+    bag[tok] = (bag[tok] || 0) + 1;
+  }
+  // Cap the bag to 80 most-frequent tokens to keep storage tidy
+  const entries = Object.entries(bag).sort((a, b) => b[1] - a[1]).slice(0, 80);
+  data[subject][topic] = Object.fromEntries(entries);
+  saveLearnedKeywords(data);
+}
+
 // ═══════════════════════════════════════════════════
 //  NAVIGATION
 // ═══════════════════════════════════════════════════
@@ -1615,9 +1769,13 @@ function loadPaper() {
 //  TEMPLATE BUILDER
 // ═══════════════════════════════════════════════════
 let _builderState = []; // [{ n, topic, parts:[{l, marks, sub:[{l,marks}]?}] }]
+let _builderQuestionTexts = []; // parallel to _builderState: prose per Q (for learning), '' if manual
+let _builderPredictedTopics = []; // parallel: topic predicted at parse time, '' if none
 
 function showBuilderStep() {
   _builderState = [];
+  _builderQuestionTexts = [];
+  _builderPredictedTopics = [];
   switchBuilderTab('manual');
   document.getElementById('builder-context-label').textContent =
     `${getSubjectName(currentSubject)} ${currentPaperKey} ${currentYear}`;
@@ -1638,6 +1796,8 @@ function showBuilderStep() {
 function cancelBuilder() {
   document.getElementById('log-step1b').style.display = 'none';
   _builderState = [];
+  _builderQuestionTexts = [];
+  _builderPredictedTopics = [];
 }
 
 function switchBuilderTab(name) {
@@ -1648,11 +1808,15 @@ function switchBuilderTab(name) {
 
 function builderAddQuestion() {
   _builderState.push({ topic: '', parts: [{ l: '', marks: 0, sub: null }] });
+  _builderQuestionTexts.push('');
+  _builderPredictedTopics.push('');
   renderBuilder();
 }
 
 function builderRemoveQuestion(qIdx) {
   _builderState.splice(qIdx, 1);
+  _builderQuestionTexts.splice(qIdx, 1);
+  _builderPredictedTopics.splice(qIdx, 1);
   if (_builderState.length === 0) builderAddQuestion();
   else renderBuilder();
 }
@@ -1706,7 +1870,19 @@ function builderSetField(qIdx, field, value, pIdx, sIdx) {
     if (field === 'l') p.l = value;
     else if (field === 'marks') p.marks = parseInt(value) || 0;
   } else {
-    if (field === 'topic') _builderState[qIdx].topic = value;
+    if (field === 'topic') {
+      const prevTopic = _builderState[qIdx].topic;
+      const predicted = _builderPredictedTopics[qIdx] || '';
+      _builderState[qIdx].topic = value;
+      // Learn only on an explicit user correction of a parsed question
+      // (i.e. text exists, and the chosen topic differs from what we predicted).
+      const text = _builderQuestionTexts[qIdx];
+      if (value && text && value !== predicted) {
+        learnFromCorrection(currentSubject, value, text);
+      }
+      // Once accepted/changed, this is no longer "auto" — clear the prediction marker
+      if (value !== prevTopic) _builderPredictedTopics[qIdx] = '';
+    }
   }
   updateBuilderSummary();
 }
@@ -1717,6 +1893,7 @@ function renderBuilder() {
   let html = '';
   _builderState.forEach((q, qi) => {
     const topicOpts = topics.map(t => `<option value="${_esc(t)}"${t===q.topic?' selected':''}>${_esc(t)}</option>`).join('');
+    const isAuto = _builderPredictedTopics[qi] && _builderPredictedTopics[qi] === q.topic;
     html += `<div class="builder-q">
       <div class="builder-q-head">
         <span class="builder-q-num">Q${qi + 1}</span>
@@ -1724,6 +1901,7 @@ function renderBuilder() {
           <option value="">— pick a topic —</option>
           ${topicOpts}
         </select>
+        ${isAuto ? '<span class="builder-auto-tag" title="Auto-detected from question text — change to correct">auto</span>' : ''}
         <div class="builder-q-actions">
           <button class="builder-icon-btn" onclick="builderAddPart(${qi})">+ part</button>
           <button class="builder-icon-btn danger" onclick="builderRemoveQuestion(${qi})">remove Q</button>
@@ -1803,6 +1981,7 @@ function builderParsePaste() {
 
   let curQ = null, curPart = null, curSub = null;
   const leaves = []; // { q, part, sub, marks }
+  const textByQ = new Map(); // qNum -> accumulated prose for topic prediction
   let sawAnyQ = false;
 
   for (const raw of rawLines) {
@@ -1826,8 +2005,15 @@ function builderParsePaste() {
         curPart = null;
         curSub = null;
         sawAnyQ = true;
+        // Seed the prose with the question stem (drop the leading "1 " number)
+        textByQ.set(curQ, ' ' + line.replace(/^\d{1,2}\s+/, ''));
         continue;
       }
+    }
+
+    // Accumulate prose for topic prediction. Skip pure dotted answer-area lines.
+    if (curQ !== null && !/^[\s.]+(\[\d+\])?$/.test(line)) {
+      textByQ.set(curQ, (textByQ.get(curQ) || '') + ' ' + line);
     }
 
     // Sub-part FIRST (Roman numerals (i) (ii) … (x)) — must precede single-letter check
@@ -1878,13 +2064,14 @@ function builderParsePaste() {
     }
   }
 
-  // Build _builderState (topics left blank — user assigns them next)
+  // Build _builderState + run topic prediction on each question's prose
   const state = [];
-  let totalMarks = 0, leafCount = 0;
+  const texts = [];
+  const predicted = [];
+  let totalMarks = 0, leafCount = 0, predictedCount = 0;
   for (const qn of Array.from(byQ.keys()).sort((a, b) => a - b)) {
     const partMap = byQ.get(qn);
     const parts = [];
-    // Sort: empty (whole-Q) first, then alphabetic
     const keys = Array.from(partMap.keys()).sort((a, b) => (a === '' ? -1 : b === '' ? 1 : a.localeCompare(b)));
     for (const k of keys) {
       const slot = partMap.get(k);
@@ -1897,13 +2084,25 @@ function builderParsePaste() {
         totalMarks += slot.marks; leafCount++;
       }
     }
-    if (parts.length) state.push({ topic: '', parts });
+    if (parts.length) {
+      const text = (textByQ.get(qn) || '').trim();
+      const guess = predictTopic(text, currentSubject) || '';
+      if (guess) predictedCount++;
+      state.push({ topic: guess, parts });
+      texts.push(text);
+      predicted.push(guess);
+    }
   }
 
   _builderState = state;
+  _builderQuestionTexts = texts;
+  _builderPredictedTopics = predicted;
   switchBuilderTab('manual');
   renderBuilder();
-  msgEl.textContent = `Parsed ${state.length} question${state.length!==1?'s':''}, ${leafCount} part${leafCount!==1?'s':''}, ${totalMarks} marks. Assign topics below.`;
+  const guessNote = predictedCount > 0
+    ? ` ${predictedCount}/${state.length} topic${state.length!==1?'s':''} auto-detected — review and correct below.`
+    : ' Assign topics below.';
+  msgEl.textContent = `Parsed ${state.length} question${state.length!==1?'s':''}, ${leafCount} part${leafCount!==1?'s':''}, ${totalMarks} marks.${guessNote}`;
 }
 
 const _ROMAN_VALUES = { i:1, ii:2, iii:3, iv:4, v:5, vi:6, vii:7, viii:8, ix:9, x:10 };
