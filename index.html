@@ -1019,7 +1019,7 @@
             <div class="card-title" style="margin:0">Build Paper Structure</div>
             <div class="builder-tabs">
               <button class="builder-tab active" data-tab="manual" onclick="switchBuilderTab('manual')">Manual</button>
-              <button class="builder-tab" data-tab="paste" onclick="switchBuilderTab('paste')">Paste mark scheme</button>
+              <button class="builder-tab" data-tab="paste" onclick="switchBuilderTab('paste')">Paste QP PDF</button>
             </div>
           </div>
           <p class="text-muted text-sm" style="margin-bottom:14px;line-height:1.6">
@@ -2183,23 +2183,32 @@ function buildPaperForm() {
     const totalQMarks = q.parts.reduce((s, p) => s + p.marks, 0);
 
     if (hasMultiParts) {
-      // Header row for question
+      // Header row for question (topic shown per-part below)
       const htr = document.createElement('tr');
       htr.className = 'q-row-header';
       htr.innerHTML = `
         <td><span class="q-num">Q${q.n}</span></td>
-        <td><span class="q-topic">${q.topic}<small>${q.subtopic}</small></span></td>
+        <td></td>
         <td class="q-marks">[${totalQMarks}]</td>
         <td></td>
       `;
       tbody.appendChild(htr);
 
+      // Track last primary label so sub-parts (e.g. "b i") inherit it
+      let lastPrimaryLabel = '';
       q.parts.forEach(part => {
         const tr = document.createElement('tr');
         const inputId = `inp_${currentSubject}_${currentPaperKey}_${q.n}_${part.l}`.replace(/\s/g,'_');
+        // Sub-parts have a space in their label (e.g. "b i", "b ii")
+        const isSubPart = /\s/.test(part.l);
+        const primaryLabel = isSubPart ? part.l.split(' ')[0] : part.l;
+        const showTopic = !isSubPart || primaryLabel !== lastPrimaryLabel;
+        if (!isSubPart) lastPrimaryLabel = part.l;
+        const partTopic = part.topic || q.topic;
+        const partSubtopic = part.subtopic || q.subtopic;
         tr.innerHTML = `
           <td><span class="q-num" style="padding-left:16px;color:var(--text3)">Q${q.n}${part.l ? ' '+part.l+')' : ''}</span></td>
-          <td></td>
+          <td>${showTopic ? `<span class="q-topic">${partTopic}<small>${partSubtopic}</small></span>` : ''}</td>
           <td class="q-marks">[${part.marks}]</td>
           <td><input class="mark-input" id="${inputId}" type="number" min="0" max="${part.marks}" placeholder="—" data-max="${part.marks}" autocomplete="off"></td>
         `;
@@ -2423,8 +2432,8 @@ function savePaper() {
       scores.push({
         qn: q.n,
         partLabel: part.l,
-        topic: q.topic,
-        subtopic: q.subtopic,
+        topic: part.topic || q.topic,
+        subtopic: part.subtopic || q.subtopic,
         marks: part.marks,
         scored: scored
       });
