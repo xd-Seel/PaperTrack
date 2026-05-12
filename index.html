@@ -1062,6 +1062,8 @@
             <div class="card-title" style="margin:0">Mark Entry <span class="text-muted text-sm" style="text-transform:none;letter-spacing:0">— press 0–9 to fill, auto-advances</span></div>
             <div class="flex" style="gap:8px">
               <button class="btn btn-ghost" onclick="clearAllMarks()">Clear</button>
+              <button class="btn btn-ghost" id="btn-edit-template" style="display:none" onclick="editCurrentTemplate()">Edit Template</button>
+              <button class="btn btn-danger" id="btn-delete-template" style="display:none" onclick="deleteCurrentTemplate()">Delete Template</button>
               <button class="btn btn-primary" onclick="savePaper()">Save Paper ✓</button>
             </div>
           </div>
@@ -1759,7 +1761,13 @@ function loadPaper() {
     document.getElementById('log-step2').style.display = 'block';
     document.getElementById('log-step2').scrollIntoView({behavior:'smooth', block:'start'});
     fetchBoundaries();
+    // Only show edit/delete for user-saved templates (not built-in baked ones)
+    const isBaked = !!PAPERS[sub]?.papers?.[pk]?.yearQuestions?.[currentYear];
+    document.getElementById('btn-edit-template').style.display = isBaked ? 'none' : '';
+    document.getElementById('btn-delete-template').style.display = isBaked ? 'none' : '';
   } else {
+    document.getElementById('btn-edit-template').style.display = 'none';
+    document.getElementById('btn-delete-template').style.display = 'none';
     showBuilderStep();
   }
   msg.textContent = '';
@@ -1768,7 +1776,7 @@ function loadPaper() {
 // ═══════════════════════════════════════════════════
 //  TEMPLATE BUILDER
 // ═══════════════════════════════════════════════════
-let _builderState = []; // [{ n, topic, parts:[{l, marks, sub:[{l,marks}]?}] }]
+let _builderState = []; // [{ parts:[{l, topic, marks, sub:[{l,marks}]?}] }]
 let _builderQuestionTexts = []; // parallel to _builderState: prose per Q (for learning), '' if manual
 let _builderPredictedTopics = []; // parallel: topic predicted at parse time, '' if none
 
@@ -1800,6 +1808,45 @@ function cancelBuilder() {
   _builderPredictedTopics = [];
 }
 
+function editCurrentTemplate() {
+  // Load the existing template into the builder so it can be corrected and re-saved
+  const tpl = getTemplates()[currentSubject]?.[currentPaperKey]?.[currentYear];
+  if (!tpl) { toast('No user template to edit.', 'error'); return; }
+  document.getElementById('log-step2').style.display = 'none';
+  _builderState = tpl.map(q => ({
+    parts: q.parts.map(p => ({
+      l: p.l,
+      topic: p.topic || q.topic || '',
+      marks: p.marks,
+      sub: null
+    }))
+  }));
+  _builderQuestionTexts = tpl.map(() => '');
+  _builderPredictedTopics = tpl.map(() => '');
+  switchBuilderTab('manual');
+  document.getElementById('builder-context-label').textContent =
+    `${getSubjectName(currentSubject)} ${currentPaperKey} ${currentYear}`;
+  document.getElementById('builder-info-bar').innerHTML = `
+    <span class="pill">${_esc(getSubjectName(currentSubject))}</span>
+    <span class="pill">${_esc(currentPaperKey)}</span>
+    <span class="pill">${currentYear}</span>
+    <span style="color:var(--text3);font-family:var(--mono);font-size:11px">Editing saved template</span>`;
+  document.getElementById('builder-paste').value = '';
+  document.getElementById('builder-parse-msg').textContent = '';
+  renderBuilder();
+  document.getElementById('log-step1b').style.display = 'block';
+  document.getElementById('log-step1b').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function deleteCurrentTemplate() {
+  if (!confirm(`Delete template for ${getSubjectName(currentSubject)} ${currentPaperKey} ${currentYear}? Logged attempts are kept.`)) return;
+  deleteTemplate(currentSubject, currentPaperKey, currentYear);
+  document.getElementById('btn-edit-template').style.display = 'none';
+  document.getElementById('btn-delete-template').style.display = 'none';
+  document.getElementById('log-step2').style.display = 'none';
+  toast('Template deleted.', 'info');
+}
+
 function switchBuilderTab(name) {
   document.querySelectorAll('.builder-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   document.getElementById('builder-tab-manual').style.display = name === 'manual' ? 'block' : 'none';
@@ -1807,7 +1854,7 @@ function switchBuilderTab(name) {
 }
 
 function builderAddQuestion() {
-  _builderState.push({ topic: '', parts: [{ l: '', marks: 0, sub: null }] });
+  _builderState.push({ parts: [{ l: '', topic: '', marks: 0, sub: null }] });
   _builderQuestionTexts.push('');
   _builderPredictedTopics.push('');
   renderBuilder();
@@ -1830,7 +1877,7 @@ function builderAddPart(qIdx) {
   if (q.parts.length === 1 && q.parts[0].l === '' && q.parts[0].marks === 0) {
     q.parts[0].l = nextLetter;
   } else {
-    q.parts.push({ l: nextLetter, marks: 0, sub: null });
+    q.parts.push({ l: nextLetter, topic: '', marks: 0, sub: null });
   }
   renderBuilder();
 }
@@ -1869,18 +1916,15 @@ function builderSetField(qIdx, field, value, pIdx, sIdx) {
     const p = _builderState[qIdx].parts[pIdx];
     if (field === 'l') p.l = value;
     else if (field === 'marks') p.marks = parseInt(value) || 0;
-  } else {
-    if (field === 'topic') {
-      const prevTopic = _builderState[qIdx].topic;
+    else if (field === 'topic') {
       const predicted = _builderPredictedTopics[qIdx] || '';
-      _builderState[qIdx].topic = value;
-      // Learn only on an explicit user correction of a parsed question
-      // (i.e. text exists, and the chosen topic differs from what we predicted).
+      const prevTopic = p.topic;
+      p.topic = value;
+      // Learn only on explicit user correction of a parsed question
       const text = _builderQuestionTexts[qIdx];
       if (value && text && value !== predicted) {
         learnFromCorrection(currentSubject, value, text);
       }
-      // Once accepted/changed, this is no longer "auto" — clear the prediction marker
       if (value !== prevTopic) _builderPredictedTopics[qIdx] = '';
     }
   }
@@ -1892,16 +1936,11 @@ function renderBuilder() {
   const topics = getTopics(currentSubject);
   let html = '';
   _builderState.forEach((q, qi) => {
-    const topicOpts = topics.map(t => `<option value="${_esc(t)}"${t===q.topic?' selected':''}>${_esc(t)}</option>`).join('');
-    const isAuto = _builderPredictedTopics[qi] && _builderPredictedTopics[qi] === q.topic;
+    const isAuto = _builderPredictedTopics[qi] && q.parts.some(p => p.topic === _builderPredictedTopics[qi]);
     html += `<div class="builder-q">
       <div class="builder-q-head">
         <span class="builder-q-num">Q${qi + 1}</span>
-        <select class="builder-select topic" onchange="builderSetField(${qi},'topic',this.value)">
-          <option value="">— pick a topic —</option>
-          ${topicOpts}
-        </select>
-        ${isAuto ? '<span class="builder-auto-tag" title="Auto-detected from question text — change to correct">auto</span>' : ''}
+        ${isAuto ? '<span class="builder-auto-tag" title="Topics auto-detected from question text — review below">auto</span>' : ''}
         <div class="builder-q-actions">
           <button class="builder-icon-btn" onclick="builderAddPart(${qi})">+ part</button>
           <button class="builder-icon-btn danger" onclick="builderRemoveQuestion(${qi})">remove Q</button>
@@ -1910,10 +1949,15 @@ function renderBuilder() {
       <div class="builder-parts">`;
     q.parts.forEach((p, pi) => {
       const hasSub = p.sub && p.sub.length > 0;
+      const topicOpts = topics.map(t => `<option value="${_esc(t)}"${t===p.topic?' selected':''}>${_esc(t)}</option>`).join('');
       html += `<div class="builder-part-row">
         <span class="builder-part-label">${p.l ? `(${_esc(p.l)})` : '—'}</span>
         <input class="builder-input mini" type="text" maxlength="3" placeholder="a" value="${_esc(p.l)}" oninput="builderSetField(${qi},'l',this.value,${pi})">
         <input class="builder-input mini" type="number" min="0" max="999" placeholder="marks" value="${hasSub ? p.sub.reduce((s,x)=>s+(x.marks||0),0) : (p.marks||'')}" ${hasSub?'disabled title="Sum of sub-parts"':''} oninput="builderSetField(${qi},'marks',this.value,${pi})">
+        <select class="builder-select topic" style="min-width:160px" onchange="builderSetField(${qi},'topic',this.value,${pi})">
+          <option value="">— topic —</option>
+          ${topicOpts}
+        </select>
         <button class="builder-icon-btn" onclick="builderAddSubPart(${qi},${pi})">+ sub</button>
         <button class="builder-icon-btn danger" onclick="builderRemovePart(${qi},${pi})">×</button>
       </div>`;
@@ -1942,11 +1986,11 @@ function updateBuilderSummary() {
   let leaves = 0;
   let missingTopic = 0;
   _builderState.forEach(q => {
-    if (!q.topic) missingTopic++;
     q.parts.forEach(p => {
       if (p.sub && p.sub.length) {
         p.sub.forEach(s => { totalMarks += (s.marks || 0); leaves++; });
       } else {
+        if (!p.topic) missingTopic++;
         totalMarks += (p.marks || 0);
         leaves++;
       }
@@ -1958,7 +2002,7 @@ function updateBuilderSummary() {
     msg += ` · expected ${expectedTotal}`;
     el.className = 'builder-summary warn';
   } else if (missingTopic > 0) {
-    msg += ` · ${missingTopic} question${missingTopic!==1?'s':''} missing topic`;
+    msg += ` · ${missingTopic} part${missingTopic!==1?'s':''} missing topic`;
     el.className = 'builder-summary warn';
   } else if (totalMarks > 0 && leaves > 0) {
     el.className = 'builder-summary ok';
@@ -1992,21 +2036,19 @@ function builderParsePaste() {
     if (/^©\s*\w/.test(line)) continue;          // "© OCR 2020"
     if (/^\*\d+\*$/.test(line)) continue;        // barcodes "*8330013161*"
 
-    // New top-level question — single/double digit followed by space then a capital letter or quote.
-    // Examples that DO match: "1 Kira", "2 OCR-Tickets", "12 The…"
-    // Avoids pseudocode line numbers like "01 function" (lowercase next), bullet "1 ......" (dots next),
-    //   and data rows like "5 10 15" (digit next).
-    const qm = line.match(/^(\d{1,2})\s+(?=[A-Z"'])/);
-    if (qm) {
+    // New top-level question — digit(s) at start of line, no leading zero,
+    // followed by space then non-digit (catches "1 Kira", "12 The…", "3 (a)" etc.)
+    // Also matches bare question numbers on their own line (e.g. "7" with nothing after).
+    const qm = line.match(/^(\d{1,2})(\s+\S|$)/);
+    if (qm && !/^0\d/.test(qm[1])) {
       const n = parseInt(qm[1], 10);
-      // Reject obvious non-questions: pseudocode "01..09" with leading zero, or jumps that aren't sequential
-      if (!/^0\d/.test(qm[1])) {
+      // Must be sequential (or first question) — avoids matching data values mid-question
+      if (!sawAnyQ || n === (curQ || 0) + 1 || n === 1) {
         curQ = n;
         curPart = null;
         curSub = null;
         sawAnyQ = true;
-        // Seed the prose with the question stem (drop the leading "1 " number)
-        textByQ.set(curQ, ' ' + line.replace(/^\d{1,2}\s+/, ''));
+        textByQ.set(curQ, ' ' + line.replace(/^\d{1,2}\s*/, ''));
         continue;
       }
     }
@@ -2073,22 +2115,22 @@ function builderParsePaste() {
     const partMap = byQ.get(qn);
     const parts = [];
     const keys = Array.from(partMap.keys()).sort((a, b) => (a === '' ? -1 : b === '' ? 1 : a.localeCompare(b)));
+    const text = (textByQ.get(qn) || '').trim();
+    const guess = predictTopic(text, currentSubject) || '';
+    if (guess) predictedCount++;
     for (const k of keys) {
       const slot = partMap.get(k);
       if (slot.sub && slot.sub.length) {
         const sortedSub = slot.sub.slice().sort((a, b) => _romanValue(a.l) - _romanValue(b.l));
-        parts.push({ l: k, marks: 0, sub: sortedSub });
+        parts.push({ l: k, topic: guess, marks: 0, sub: sortedSub });
         sortedSub.forEach(s => { totalMarks += s.marks; leafCount++; });
       } else if (slot.marks > 0) {
-        parts.push({ l: k, marks: slot.marks, sub: null });
+        parts.push({ l: k, topic: guess, marks: slot.marks, sub: null });
         totalMarks += slot.marks; leafCount++;
       }
     }
     if (parts.length) {
-      const text = (textByQ.get(qn) || '').trim();
-      const guess = predictTopic(text, currentSubject) || '';
-      if (guess) predictedCount++;
-      state.push({ topic: guess, parts });
+      state.push({ parts });
       texts.push(text);
       predicted.push(guess);
     }
@@ -2113,22 +2155,24 @@ function _flattenBuilderState() {
   let nextQn = 1;
   const out = [];
   for (const q of _builderState) {
-    if (!q.topic) return { error: 'Every question needs a topic.' };
     const flatParts = [];
     for (const p of q.parts) {
       if (p.sub && p.sub.length) {
         for (const s of p.sub) {
           if (!s.l) return { error: `Q${nextQn} sub-part label can't be blank.` };
           if (s.marks <= 0) return { error: `Q${nextQn}${p.l?' '+p.l:''} ${s.l} needs a marks value.` };
-          flatParts.push({ l: `${p.l} ${s.l}`.trim(), marks: s.marks });
+          flatParts.push({ l: `${p.l} ${s.l}`.trim(), topic: p.topic || '', subtopic: '', marks: s.marks });
         }
       } else {
-        if (p.marks <= 0) return { error: `Q${nextQn}${p.l?' '+p.l:''} needs a marks value.` };
-        flatParts.push({ l: p.l, marks: p.marks });
+        if (!p.topic) return { error: `Q${nextQn}${p.l?' ('+p.l+')':''} needs a topic.` };
+        if (p.marks <= 0) return { error: `Q${nextQn}${p.l?' ('+p.l+')':''} needs a marks value.` };
+        flatParts.push({ l: p.l, topic: p.topic, subtopic: '', marks: p.marks });
       }
     }
     if (flatParts.length === 0) return { error: `Q${nextQn} has no parts.` };
-    out.push({ n: nextQn, topic: q.topic, subtopic: '', parts: flatParts });
+    // Derive a fallback question-level topic from the first part (for backward compat)
+    const qTopic = q.parts[0]?.topic || '';
+    out.push({ n: nextQn, topic: qTopic, subtopic: '', parts: flatParts });
     nextQn++;
   }
   if (out.length === 0) return { error: 'Add at least one question.' };
@@ -2141,12 +2185,15 @@ function saveBuilderTemplate() {
   saveTemplate(currentSubject, currentPaperKey, currentYear, res.questions);
   toast('Template saved.', 'success');
   // Transition straight to mark entry
-  const paperBase = PAPERS[currentSubject].papers[currentPaperKey];
+  const paperBase = getSubjectPapers(currentSubject)[currentPaperKey] || {};
   currentPaperDef = { ...paperBase, questions: res.questions };
   document.getElementById('log-step1b').style.display = 'none';
   buildPaperForm();
   document.getElementById('log-step2').style.display = 'block';
   document.getElementById('log-step2').scrollIntoView({behavior:'smooth', block:'start'});
+  // Show edit/delete now that a user template exists
+  document.getElementById('btn-edit-template').style.display = '';
+  document.getElementById('btn-delete-template').style.display = '';
   fetchBoundaries();
 }
 
