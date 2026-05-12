@@ -1477,14 +1477,22 @@ const TOPIC_KEYWORDS = {
     'Databases & SQL': ['database','sql','primary key','foreign key','normalisation','acid','query','relational','referential integrity','transaction','locking','select','insert','update','delete from','join'],
     'Representation of Data': ['binary','hexadecimal','floating point','two’s complement','two\'s complement','sign and magnitude','bit shift','ascii','unicode','denary','base conversion','character set','mantissa','exponent','normalisation'],
     'Boolean Algebra & Logic': ['boolean','truth table','karnaugh','logic gate','de morgan','nand','nor','xor','adder','flip-flop','d-type','half adder','full adder'],
-    'Programming': ['pseudocode','parameter','file handling','scope','local variable','global variable','pass by reference','pass by value','endfunction','endprocedure','data type','integer','string','array variable','indentation','syntax error'],
-    'Algorithms': ['algorithm','sort','search','binary search','linear search','insertion sort','merge sort','quick sort','bubble sort','dijkstra','a star','a*','breadth-first','depth-first','traversal','shortest path','divide and conquer'],
-    'Data Structures': ['stack','queue','tree','linked list','binary tree','hash table','graph','circular queue','pointer','node','head pointer','tail pointer','dequeue','enqueue','push','pop','adjacency','traversal','headpointer','freelistpointer','queuehead','queuetail'],
+    'Programming': ['pseudocode','parameter','file handling','scope','local variable','global variable','endfunction','endprocedure','data type','integer','string','array variable','indentation','syntax error'],
+    'Algorithms': ['algorithm','search','binary search','linear search','dijkstra','a star','a*','shortest path'],
+    'Data Structures': ['stack','linked list','hash table','graph','pointer','node','head pointer','tail pointer','adjacency','headpointer','freelistpointer'],
+    'Trees': ['tree','binary tree','binary search tree','bst','root','leaf','child node','parent node','subtree','left child','right child'],
+    'Traversal Algorithms': ['traversal','traverse','pre-order','in-order','post-order','preorder','inorder','postorder','breadth-first','depth-first','bfs','dfs'],
+    'Sorting Algorithms': ['sort','sorting','bubble sort','insertion sort','merge sort','quick sort','sorted list','sorted array'],
+    'Queues': ['queue','enqueue','dequeue','circular queue','priority queue','queuehead','queuetail','front of queue','rear of queue'],
+    'Iteration': ['iteration','iterate','iterative','for loop','while loop','repeat until','do while','loop counter'],
+    'Concurrent Processing': ['concurrent','concurrency','parallel processing','thread','race condition','deadlock','mutex','semaphore','synchronisation'],
+    'Computational Methods': ['computational method','problem recognition','divide and conquer','heuristic','backtracking','data mining','simulation','visualisation','pipelining','performance modelling','abstraction by generalisation'],
+    'Pass by Reference/Value': ['pass by reference','pass by value','byref','byval','reference parameter','value parameter','passed by reference','passed by value'],
     'OOP': ['object-oriented','class','encapsulation','inheritance','polymorphism','constructor','method','attribute','instance','get method','set method','getter','setter','superclass','subclass','private','public','protected'],
-    'Recursion': ['recursion','recursive','base case','recurrence','call stack','stack overflow'],
+    'Recursion': ['recursion','recursive','base case','recurrence','call stack','stack overflow','recursive call','recursive function'],
     'Big O & Complexity': ['big o','complexity','time complexity','space complexity','asymptotic','linear time','quadratic time','logarithmic','o(n)','o(log n)','o(n^2)'],
     'Legislation & Ethics': ['legislation','data protection act','dpa','computer misuse','cma','cdpa','ripa','copyright','privacy','gdpr','ethical issue','legal issue'],
-    'Computational Thinking': ['decomposition','abstraction','problem recognition','computational thinking','data mining','simulation','thinking ahead','thinking procedurally','thinking concurrently'],
+    'Computational Thinking': ['decomposition','abstraction','problem recognition','computational thinking','thinking ahead','thinking procedurally','thinking concurrently'],
   },
   maths: {
     'Algebra & Functions': ['algebra','partial fractions','binomial expansion','binomial theorem','factorise','simplify','modulus','inverse function','composite function','transformation','quadratic','polynomial'],
@@ -2020,12 +2028,18 @@ function builderParsePaste() {
   const msgEl = document.getElementById('builder-parse-msg');
   if (!txt.trim()) { msgEl.textContent = 'Paste some text first.'; return; }
 
-  const ROMAN = /^(i{1,3}|iv|v|vi{0,3}|ix|x)$/i;
   const rawLines = txt.split(/\r?\n/);
 
   let curQ = null, curPart = null, curSub = null;
   const leaves = []; // { q, part, sub, marks }
-  const textByQ = new Map(); // qNum -> accumulated prose for topic prediction
+  // Per-part prose: keyed "q|part" ('' part for whole-Q intro). Sub-parts append
+  // to their parent part's bucket, since sub-parts inherit the part topic.
+  const textByPart = new Map();
+  const addText = (q, part, snippet) => {
+    if (q === null || !snippet) return;
+    const key = q + '|' + (part || '');
+    textByPart.set(key, (textByPart.get(key) || '') + ' ' + snippet);
+  };
   let sawAnyQ = false;
 
   for (const raw of rawLines) {
@@ -2035,48 +2049,65 @@ function builderParsePaste() {
     if (/^(PMT|BLANK PAGE|Turn over|END OF QUESTION PAPER|Section [A-Z]\b)/i.test(line)) continue;
     if (/^©\s*\w/.test(line)) continue;          // "© OCR 2020"
     if (/^\*\d+\*$/.test(line)) continue;        // barcodes "*8330013161*"
+    if (/^\d+\s+of\s+\d+$/i.test(line)) continue; // "3 of 24" page footers
+    if (/^Total\s+(marks|for)\b/i.test(line)) continue;
 
-    // New top-level question — digit(s) at start of line, no leading zero,
-    // followed by space then non-digit (catches "1 Kira", "12 The…", "3 (a)" etc.)
-    // Also matches bare question numbers on their own line (e.g. "7" with nothing after).
-    const qm = line.match(/^(\d{1,2})(\s+\S|$)/);
+    // New top-level question — digit(s) at start of line, no leading zero.
+    // Matches "1 Kira", "12 The…", "3 (a)…" OR a bare "7" alone on its own line.
+    const qm = line.match(/^(\d{1,2})(?:\s+(\S.*))?$/);
+    let consumedAsQ = false;
     if (qm && !/^0\d/.test(qm[1])) {
       const n = parseInt(qm[1], 10);
-      // Must be sequential (or first question) — avoids matching data values mid-question
-      if (!sawAnyQ || n === (curQ || 0) + 1 || n === 1) {
+      // Sequential check guards against stray data values being read as Q-headers.
+      if (!sawAnyQ || n === (curQ || 0) + 1) {
         curQ = n;
         curPart = null;
         curSub = null;
         sawAnyQ = true;
-        textByQ.set(curQ, ' ' + line.replace(/^\d{1,2}\s*/, ''));
-        continue;
+        consumedAsQ = true;
+        if (qm[2]) {
+          // Re-process the remainder so a same-line "(a) Foo" still registers a part.
+          const rest = qm[2];
+          const restPart = rest.match(/^\(([a-z])\)\*?(?:\s|$)/);
+          if (restPart) {
+            curPart = restPart[1];
+            addText(curQ, curPart, rest.replace(/^\([a-z]\)\*?\s*/, ''));
+          } else {
+            addText(curQ, null, rest);
+          }
+        }
       }
     }
-
-    // Accumulate prose for topic prediction. Skip pure dotted answer-area lines.
-    if (curQ !== null && !/^[\s.]+(\[\d+\])?$/.test(line)) {
-      textByQ.set(curQ, (textByQ.get(curQ) || '') + ' ' + line);
-    }
-
-    // Sub-part FIRST (Roman numerals (i) (ii) … (x)) — must precede single-letter check
-    // because the single-letter regex also matches (i), (v), (x).
-    const sm = line.match(/^\((i{1,3}|iv|v|vi{0,3}|ix|x)\)\s/);
-    if (sm && curQ !== null) {
-      curSub = sm[1].toLowerCase();
+    if (consumedAsQ) {
+      // Still scan this line for marks below.
     } else {
-      // New part: "(a) ", "(b)* ", "(c) Foo…"
-      const pm = line.match(/^\(([a-z])\)\*?\s/);
-      if (pm && curQ !== null) {
-        curPart = pm[1];
-        curSub = null;
+      // Sub-part FIRST (Roman numerals (i) (ii) … (x)) — must precede the single-letter
+      // check, because the single-letter regex also matches (i), (v), (x).
+      // Tolerate end-of-line and inconsistent spacing: "(i)", "(i) ", "(i)*"
+      const sm = line.match(/^\((i{1,3}|iv|v|vi{0,3}|ix|x)\)\*?(?:\s|$)/i);
+      if (sm && curQ !== null) {
+        curSub = sm[1].toLowerCase();
+        addText(curQ, curPart, line.replace(/^\([ivx]+\)\*?\s*/i, ''));
+      } else {
+        // New part: "(a)", "(a) ", "(b)*", "(c) Foo…", or "(a)" alone on its own line.
+        const pm = line.match(/^\(([a-z])\)\*?(?:\s|$)/);
+        if (pm && curQ !== null) {
+          curPart = pm[1];
+          curSub = null;
+          addText(curQ, curPart, line.replace(/^\([a-z]\)\*?\s*/, ''));
+        } else if (curQ !== null && !/^[\s.]+(\[\d+\])?$/.test(line)) {
+          // Multi-line continuation of current part/sub-part. Skip dotted answer-area lines.
+          addText(curQ, curPart, line);
+        }
       }
     }
 
-    // Collect [N] marks on this line — only digit-only brackets, sanity-bounded to 0–100
-    const markRe = /\[(\d{1,3})\]/g;
+    // Collect marks on this line. Accept "[N]", "[N marks]", "(N marks)".
+    // Restricted to brackets to avoid grabbing arbitrary numbers from question text.
+    const markRe = /\[\s*(\d{1,3})\s*(?:marks?)?\s*\]|\(\s*(\d{1,3})\s*marks?\s*\)/gi;
     let mm;
     while ((mm = markRe.exec(line)) !== null) {
-      const marks = parseInt(mm[1], 10);
+      const marks = parseInt(mm[1] || mm[2], 10);
       if (!isFinite(marks) || marks <= 0 || marks > 100) continue;
       if (curQ === null) continue;
       leaves.push({ q: curQ, part: curPart, sub: curSub, marks });
@@ -2088,25 +2119,29 @@ function builderParsePaste() {
     return;
   }
 
-  // Group leaves into builder shape: per-Q, per-part (letter), optional sub-parts
+  // Group leaves into builder shape: per-Q, per-part (letter), optional sub-parts.
+  // If a (Q,part,sub) appears more than once we sum the marks — handles cases
+  // where the OCR splits a single mark allocation across two brackets.
   const byQ = new Map();
   for (const lf of leaves) {
-    if (!byQ.has(lf.q)) byQ.set(lf.q, new Map()); // partLetter ('' for whole-Q) -> { marks, sub:[{l,marks}]? }
+    if (!byQ.has(lf.q)) byQ.set(lf.q, new Map());
     const partMap = byQ.get(lf.q);
     const key = lf.part || '';
     if (!partMap.has(key)) partMap.set(key, { marks: 0, sub: null });
     const slot = partMap.get(key);
     if (lf.sub) {
       if (!slot.sub) slot.sub = [];
-      // Dedupe — same (q, part, sub) shouldn't appear twice, but be defensive
-      if (!slot.sub.some(s => s.l === lf.sub)) slot.sub.push({ l: lf.sub, marks: lf.marks });
-    } else {
-      // Only set top-level marks if there are no sub-parts yet
-      if (!slot.sub) slot.marks = lf.marks;
+      const existing = slot.sub.find(s => s.l === lf.sub);
+      if (existing) existing.marks += lf.marks;
+      else slot.sub.push({ l: lf.sub, marks: lf.marks });
+    } else if (!slot.sub) {
+      slot.marks += lf.marks;
     }
   }
 
-  // Build _builderState + run topic prediction on each question's prose
+  // Build _builderState. Topic prediction runs PER PART using the prose for that
+  // part (falling back to the whole-Q intro when a part has none of its own).
+  // Sub-parts inherit their parent part's topic.
   const state = [];
   const texts = [];
   const predicted = [];
@@ -2115,24 +2150,32 @@ function builderParsePaste() {
     const partMap = byQ.get(qn);
     const parts = [];
     const keys = Array.from(partMap.keys()).sort((a, b) => (a === '' ? -1 : b === '' ? 1 : a.localeCompare(b)));
-    const text = (textByQ.get(qn) || '').trim();
-    const guess = predictTopic(text, currentSubject) || '';
-    if (guess) predictedCount++;
+    const qIntro = (textByPart.get(qn + '|') || '').trim();
+    const partProseList = [];
     for (const k of keys) {
       const slot = partMap.get(k);
+      const ownProse = (textByPart.get(qn + '|' + k) || '').trim();
+      const partProse = (ownProse + ' ' + qIntro).trim();
+      const guess = predictTopic(partProse, currentSubject) || '';
       if (slot.sub && slot.sub.length) {
         const sortedSub = slot.sub.slice().sort((a, b) => _romanValue(a.l) - _romanValue(b.l));
         parts.push({ l: k, topic: guess, marks: 0, sub: sortedSub });
         sortedSub.forEach(s => { totalMarks += s.marks; leafCount++; });
+        partProseList.push({ l: k, prose: partProse, guess });
       } else if (slot.marks > 0) {
         parts.push({ l: k, topic: guess, marks: slot.marks, sub: null });
         totalMarks += slot.marks; leafCount++;
+        partProseList.push({ l: k, prose: partProse, guess });
       }
     }
     if (parts.length) {
+      const anyGuessed = partProseList.some(p => p.guess);
+      if (anyGuessed) predictedCount++;
       state.push({ parts });
-      texts.push(text);
-      predicted.push(guess);
+      // Joined prose used by the per-part learning hook on user correction.
+      texts.push(partProseList.map(p => `[${p.l || '-'}] ${p.prose}`).join(' \n '));
+      // Q-level "auto" badge — first non-empty part topic wins.
+      predicted.push(partProseList.find(p => p.guess)?.guess || '');
     }
   }
 
@@ -2142,8 +2185,8 @@ function builderParsePaste() {
   switchBuilderTab('manual');
   renderBuilder();
   const guessNote = predictedCount > 0
-    ? ` ${predictedCount}/${state.length} topic${state.length!==1?'s':''} auto-detected — review and correct below.`
-    : ' Assign topics below.';
+    ? ` ${predictedCount}/${state.length} question${state.length!==1?'s':''} had at least one part topic auto-detected — review per-part below.`
+    : ' Assign per-part topics below.';
   msgEl.textContent = `Parsed ${state.length} question${state.length!==1?'s':''}, ${leafCount} part${leafCount!==1?'s':''}, ${totalMarks} marks.${guessNote}`;
 }
 
@@ -2170,9 +2213,8 @@ function _flattenBuilderState() {
       }
     }
     if (flatParts.length === 0) return { error: `Q${nextQn} has no parts.` };
-    // Derive a fallback question-level topic from the first part (for backward compat)
-    const qTopic = q.parts[0]?.topic || '';
-    out.push({ n: nextQn, topic: qTopic, subtopic: '', parts: flatParts });
+    // Topics live on parts only — questions have no topic of their own.
+    out.push({ n: nextQn, topic: '', subtopic: '', parts: flatParts });
     nextQn++;
   }
   if (out.length === 0) return { error: 'Add at least one question.' };
@@ -2202,6 +2244,15 @@ function saveBuilderTemplate() {
 // ═══════════════════════════════════════════════════
 function buildPaperForm() {
   const def = currentPaperDef;
+  // Migrate legacy/built-in templates that hold the topic at the question level —
+  // copy it down onto each part that lacks one. The canonical model now has no
+  // question-level topic; this keeps older seed data rendering correctly.
+  def.questions.forEach(q => {
+    if (q.topic) {
+      q.parts.forEach(p => { if (!p.topic) p.topic = q.topic; });
+      if (q.subtopic) q.parts.forEach(p => { if (!p.subtopic) p.subtopic = q.subtopic; });
+    }
+  });
   const subName = getSubjectName(currentSubject);
   const subBoard = getSubjectBoard(currentSubject);
 
@@ -2251,8 +2302,8 @@ function buildPaperForm() {
         const primaryLabel = isSubPart ? part.l.split(' ')[0] : part.l;
         const showTopic = !isSubPart || primaryLabel !== lastPrimaryLabel;
         if (!isSubPart) lastPrimaryLabel = part.l;
-        const partTopic = part.topic || q.topic;
-        const partSubtopic = part.subtopic || q.subtopic;
+        const partTopic = part.topic || '';
+        const partSubtopic = part.subtopic || '';
         tr.innerHTML = `
           <td><span class="q-num" style="padding-left:16px;color:var(--text3)">Q${q.n}${part.l ? ' '+part.l+')' : ''}</span></td>
           <td>${showTopic ? `<span class="q-topic">${partTopic}<small>${partSubtopic}</small></span>` : ''}</td>
@@ -2270,9 +2321,11 @@ function buildPaperForm() {
       const part = q.parts[0];
       const tr = document.createElement('tr');
       const inputId = `inp_${currentSubject}_${currentPaperKey}_${q.n}_single`.replace(/\s/g,'_');
+      const singleTopic = part.topic || '';
+      const singleSubtopic = part.subtopic || '';
       tr.innerHTML = `
         <td><span class="q-num">Q${q.n}</span></td>
-        <td><span class="q-topic">${q.topic}<small>${q.subtopic}</small></span></td>
+        <td><span class="q-topic">${singleTopic}<small>${singleSubtopic}</small></span></td>
         <td class="q-marks">[${part.marks}]</td>
         <td><input class="mark-input" id="${inputId}" type="number" min="0" max="${part.marks}" placeholder="—" data-max="${part.marks}" autocomplete="off"></td>
       `;
@@ -2479,8 +2532,8 @@ function savePaper() {
       scores.push({
         qn: q.n,
         partLabel: part.l,
-        topic: part.topic || q.topic,
-        subtopic: part.subtopic || q.subtopic,
+        topic: part.topic || '',
+        subtopic: part.subtopic || '',
         marks: part.marks,
         scored: scored
       });
@@ -2661,26 +2714,47 @@ function openReview(id) {
   const _revCat = SUBJECT_CATALOG[r.subject];
   const accentColor = _revCat?.color || (r.subject==='maths'?'#f5c542':r.subject==='physics'?'#4fc3f7':'#a8e6a3');
 
-  // Group scores by question
-  const byQ = {};
+  // Group scores by question, but render one row per part so each part's topic shows.
+  const byQ = new Map();
   r.scores.forEach(s => {
-    const key = `Q${s.qn}`;
-    if (!byQ[key]) byQ[key] = { topic:s.topic, subtopic:s.subtopic, parts:[], total:0, scored:0 };
-    byQ[key].parts.push(s);
-    byQ[key].total += s.marks;
-    if (s.scored !== null) byQ[key].scored += s.scored;
+    if (!byQ.has(s.qn)) byQ.set(s.qn, []);
+    byQ.get(s.qn).push(s);
   });
 
   let rowsHtml = '';
-  Object.entries(byQ).forEach(([qLabel, qData]) => {
-    const qPct = qData.total > 0 ? Math.round(qData.scored / qData.total * 100) : 0;
-    const color = qPct >= 70 ? 'var(--green)' : qPct >= 40 ? 'var(--orange)' : 'var(--red)';
-    rowsHtml += `
-      <tr>
-        <td style="font-family:var(--mono);font-size:12px;color:var(--text2)">${qLabel}</td>
-        <td style="font-size:12px">${_esc(qData.topic)}<br><small style="color:var(--text3);font-family:var(--mono)">${_esc(qData.subtopic)}</small></td>
-        <td style="font-family:var(--mono);font-size:13px;color:${color};text-align:center">${qData.scored}/${qData.total}</td>
-      </tr>`;
+  Array.from(byQ.keys()).sort((a, b) => a - b).forEach(qn => {
+    const parts = byQ.get(qn);
+    const qTotal = parts.reduce((s, p) => s + p.marks, 0);
+    const qScored = parts.reduce((s, p) => s + (p.scored || 0), 0);
+    const qPct = qTotal > 0 ? Math.round(qScored / qTotal * 100) : 0;
+    const qColor = qPct >= 70 ? 'var(--green)' : qPct >= 40 ? 'var(--orange)' : 'var(--red)';
+    const isMulti = parts.length > 1 || (parts.length === 1 && parts[0].partLabel);
+    if (isMulti) {
+      rowsHtml += `
+        <tr style="background:var(--bg1)">
+          <td style="font-family:var(--mono);font-size:12px;color:var(--text2)"><strong>Q${qn}</strong></td>
+          <td style="font-size:12px;color:var(--text3)">— part topics below —</td>
+          <td style="font-family:var(--mono);font-size:13px;color:${qColor};text-align:center"><strong>${qScored}/${qTotal}</strong></td>
+        </tr>`;
+      parts.forEach(p => {
+        const pPct = p.marks > 0 && p.scored !== null ? Math.round(p.scored / p.marks * 100) : 0;
+        const c = p.scored === null ? 'var(--text3)' : pPct >= 70 ? 'var(--green)' : pPct >= 40 ? 'var(--orange)' : 'var(--red)';
+        rowsHtml += `
+          <tr>
+            <td style="font-family:var(--mono);font-size:12px;color:var(--text3);padding-left:18px">Q${qn}${p.partLabel ? ' '+p.partLabel+')' : ''}</td>
+            <td style="font-size:12px">${_esc(p.topic || '')}${p.subtopic ? `<br><small style="color:var(--text3);font-family:var(--mono)">${_esc(p.subtopic)}</small>` : ''}</td>
+            <td style="font-family:var(--mono);font-size:13px;color:${c};text-align:center">${p.scored === null ? '—' : p.scored}/${p.marks}</td>
+          </tr>`;
+      });
+    } else {
+      const p = parts[0];
+      rowsHtml += `
+        <tr>
+          <td style="font-family:var(--mono);font-size:12px;color:var(--text2)">Q${qn}</td>
+          <td style="font-size:12px">${_esc(p.topic || '')}${p.subtopic ? `<br><small style="color:var(--text3);font-family:var(--mono)">${_esc(p.subtopic)}</small>` : ''}</td>
+          <td style="font-family:var(--mono);font-size:13px;color:${qColor};text-align:center">${p.scored === null ? '—' : p.scored}/${p.marks}</td>
+        </tr>`;
+    }
   });
 
   let boundaryHtml = '';
