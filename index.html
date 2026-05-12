@@ -928,6 +928,105 @@
     cursor:pointer; transition:all 0.15s;
   }
   .sidebar-signin-btn:hover { border-color:var(--text2); color:var(--text); background:var(--surface2); }
+
+  /* ── MULTI-TOPIC TAG INPUT ── */
+  .topic-tag-input-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    min-height: 34px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 6px;
+    cursor: text;
+    flex: 1;
+    min-width: 160px;
+    position: relative;
+    transition: border-color 0.15s;
+  }
+  .topic-tag-input-wrap:focus-within { border-color: var(--current-accent); }
+  .topic-tag-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--current-dim);
+    border: 1px solid var(--current-accent);
+    color: var(--current-accent);
+    border-radius: 999px;
+    padding: 2px 8px 2px 10px;
+    font-size: 11px;
+    font-family: var(--mono);
+    white-space: nowrap;
+    max-width: 180px;
+  }
+  .topic-tag-pill span { overflow: hidden; text-overflow: ellipsis; }
+  .topic-tag-pill button {
+    background: none; border: none;
+    color: var(--current-accent); cursor: pointer;
+    font-size: 13px; line-height: 1; padding: 0 2px;
+    opacity: 0.7; flex-shrink: 0;
+  }
+  .topic-tag-pill button:hover { opacity: 1; }
+  .topic-tag-text-input {
+    border: none; outline: none; background: transparent;
+    color: var(--text); font-family: var(--sans); font-size: 13px;
+    min-width: 80px; flex: 1;
+    padding: 2px 0;
+  }
+  .topic-autocomplete {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0; right: 0;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    z-index: 200;
+    max-height: 180px;
+    overflow-y: auto;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  }
+  .topic-autocomplete-item {
+    padding: 8px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .topic-autocomplete-item:hover,
+  .topic-autocomplete-item.active {
+    background: var(--current-dim);
+    color: var(--current-accent);
+  }
+  /* LLM Paste tab */
+  .llm-format-block {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.8;
+    color: var(--text2);
+    margin-bottom: 14px;
+    white-space: pre;
+    overflow-x: auto;
+  }
+  .llm-copy-btn {
+    background: transparent;
+    border: 1px solid var(--border2);
+    color: var(--text2);
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .llm-copy-btn:hover { border-color: var(--current-accent); color: var(--current-accent); }
+
 </style>
 </head>
 <body>
@@ -1020,6 +1119,7 @@
             <div class="builder-tabs">
               <button class="builder-tab active" data-tab="manual" onclick="switchBuilderTab('manual')">Manual</button>
               <button class="builder-tab" data-tab="paste" onclick="switchBuilderTab('paste')">Paste QP PDF</button>
+              <button class="builder-tab" data-tab="llm" onclick="switchBuilderTab('llm')">Paste from LLM</button>
             </div>
           </div>
           <p class="text-muted text-sm" style="margin-bottom:14px;line-height:1.6">
@@ -1042,6 +1142,29 @@
             <div class="flex mt8" style="gap:8px;align-items:center">
               <button class="btn btn-ghost" onclick="builderParsePaste()">Parse →</button>
               <span id="builder-parse-msg" class="text-muted text-sm text-mono"></span>
+            </div>
+          </div>
+
+          <!-- LLM Paste tab -->
+          <div id="builder-tab-llm" style="display:none">
+            <p class="text-muted text-sm" style="margin-bottom:10px;line-height:1.6">
+              Feed your past paper into your LLM (ChatGPT, Ollama, Claude etc.) with the prompt below, then paste the structured output here.
+              The parser reads each question part, its marks, and its topic tags. Review and tweak in the Manual tab before saving.
+            </p>
+            <div class="flex" style="gap:8px;margin-bottom:8px;align-items:center">
+              <span style="font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3)">LLM Prompt</span>
+              <button class="llm-copy-btn" id="llm-prompt-copy-btn" onclick="copyLLMPrompt()">Copy Prompt</button>
+              <select id="llm-prompt-subject-sel" class="builder-select" style="font-size:11px;padding:4px 8px" onchange="updateLLMPromptPreview()">
+                <option value="">— select subject —</option>
+              </select>
+            </div>
+            <div class="llm-format-block" id="llm-prompt-preview">Select a subject above to see the prompt.</div>
+            <div style="margin-top:12px;margin-bottom:8px;font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3)">LLM Output — Paste Here</div>
+            <textarea id="builder-llm-paste" class="builder-paste" style="min-height:260px"
+              placeholder="Paste the LLM's structured output here…&#10;&#10;Example:&#10;Q1&#10;  a) [2] [Motion (Kinematics)]&#10;  b) [4] [Forces in Action]&#10;Q2 [Waves] [5]"></textarea>
+            <div class="flex mt8" style="gap:8px;align-items:center">
+              <button class="btn btn-ghost" onclick="builderParseLLM()">Parse LLM Output →</button>
+              <span id="builder-llm-msg" class="text-muted text-sm text-mono"></span>
             </div>
           </div>
 
@@ -1444,9 +1567,129 @@ function deleteTemplate(subject, paperKey, year) {
 
 // ─── TOPICS (per-subject editable tag list, used for tracking weak areas) ───
 const DEFAULT_TOPICS = {
-  maths:   ['Algebra & Functions','Coordinate Geometry','Sequences & Series','Trigonometry','Exponentials & Logs','Differentiation','Integration','Numerical Methods','Vectors','Proof','Statistics','Mechanics'],
-  physics: ['Mechanics — Forces & Motion','Mechanics — Circular Motion','Materials','Waves','Quantum Physics','Electricity','Magnetic Fields','Capacitors','Thermal Physics','Nuclear Physics','Gravitational Fields','Astrophysics','Cosmology','Practical Skills'],
-  cs:      ['CPU & Architecture','Memory & Storage','Operating Systems','Networks & Protocols','Databases & SQL','Representation of Data','Boolean Algebra & Logic','Programming','Algorithms','Data Structures','OOP','Recursion','Big O & Complexity','Legislation & Ethics','Computational Thinking'],
+  // Edexcel 9MA0 — Papers 1 & 2 share all pure topics; Paper 3 = stats + mechanics
+  maths: [
+    'Proof',
+    'Algebra & Functions',
+    'Coordinate Geometry',
+    'Sequences & Series',
+    'Trigonometry',
+    'Exponentials & Logarithms',
+    'Differentiation',
+    'Integration',
+    'Numerical Methods',
+    'Vectors',
+    'Statistical Sampling',
+    'Data Presentation & Interpretation',
+    'Probability',
+    'Statistical Distributions',
+    'Hypothesis Testing',
+    'Kinematics (Mechanics)',
+    'Forces & Newton\'s Laws',
+    'Moments',
+  ],
+  // OCR A H556 — Physics A
+  physics: [
+    'Practical Skills & Data Analysis',
+    'Quantities, Units & Measurements',
+    'Motion (Kinematics)',
+    'Forces in Action',
+    'Work, Energy & Power',
+    'Materials',
+    'Newton\'s Laws & Momentum',
+    'Thermal Physics',
+    'Circular Motion',
+    'Oscillations (SHM)',
+    'Gravitational Fields',
+    'Astrophysics & Cosmology',
+    'Charge & Current',
+    'Energy, Power & Resistance',
+    'Electrical Circuits',
+    'Waves',
+    'Quantum Physics',
+    'Capacitors',
+    'Electric Fields',
+    'Electromagnetism',
+    'Nuclear & Particle Physics',
+    'Medical Imaging',
+  ],
+  // OCR A H446 — Computer Science (topics shared across both papers where relevant)
+  cs: [
+    'CPU Architecture & the Fetch-Decode-Execute Cycle',
+    'Memory & Storage',
+    'Input, Output & Storage Devices',
+    'Operating Systems',
+    'System Software & Software Development',
+    'Data Representation',
+    'Data Structures (Arrays, Stacks, Queues, Linked Lists)',
+    'Databases & SQL',
+    'Networks & Communication Protocols',
+    'Web Technologies & The Internet',
+    'Functional Programming',
+    'Object-Oriented Programming',
+    'Legal, Moral & Ethical Issues',
+    'Computational Thinking & Problem Solving',
+    'Searching Algorithms',
+    'Sorting Algorithms',
+    'Graph & Tree Algorithms',
+    'Time & Space Complexity',
+    'Recursion',
+    'Programming Techniques',
+    'Pattern Recognition & Abstraction',
+  ],
+  // OCR A H432 — Chemistry A
+  chemistry: [
+    'Practical Skills & Experimental Techniques',
+    'Atoms, Compounds & Equations',
+    'Amount of Substance',
+    'Acid-Base & Redox Reactions',
+    'Electrons, Bonding & Structure',
+    'Periodicity & the Periodic Table',
+    'Group 2 & the Halogens',
+    'Qualitative Analysis',
+    'Enthalpy Changes',
+    'Reaction Rates & Equilibrium',
+    'pH & Buffers',
+    'Entropy & Free Energy',
+    'Electrode Potentials & Electrochemical Cells',
+    'Transition Elements',
+    'Hydrocarbons',
+    'Alcohols & Haloalkanes',
+    'Organic Synthesis',
+    'Infrared Spectroscopy & Mass Spectrometry',
+    'Aromatic Compounds',
+    'Carbonyl Compounds',
+    'Carboxylic Acids & Esters',
+    'Nitrogen Compounds & Polymers',
+    'NMR Spectroscopy & Chromatography',
+  ],
+  // OCR A H420 — Biology A
+  biology: [
+    'Practical Skills & Data Analysis',
+    'Cell Structure',
+    'Biological Molecules',
+    'Nucleotides & Nucleic Acids',
+    'Enzymes',
+    'Biological Membranes',
+    'Cell Division & Organisation',
+    'Exchange Surfaces',
+    'Transport in Animals',
+    'Transport in Plants',
+    'Communicable Diseases & Immunity',
+    'Biodiversity',
+    'Classification & Evolution',
+    'Communication & Homeostasis',
+    'Excretion',
+    'Neuronal Communication',
+    'Hormonal Communication',
+    'Plant & Animal Responses',
+    'Photosynthesis',
+    'Respiration',
+    'Cellular Control & Gene Expression',
+    'Patterns of Inheritance',
+    'Manipulating Genomes & Biotechnology',
+    'Ecosystems & Populations',
+  ],
 };
 function getTopics(subject) {
   try {
@@ -1822,12 +2065,11 @@ function editCurrentTemplate() {
   if (!tpl) { toast('No user template to edit.', 'error'); return; }
   document.getElementById('log-step2').style.display = 'none';
   _builderState = tpl.map(q => ({
-    parts: q.parts.map(p => ({
-      l: p.l,
-      topic: p.topic || q.topic || '',
-      marks: p.marks,
-      sub: null
-    }))
+    parts: q.parts.map(p => {
+      const t = p.topic || q.topic || '';
+      const ts = Array.isArray(p.topics) && p.topics.length ? p.topics : (t ? [t] : []);
+      return { l: p.l, topic: ts[0] || '', topics: ts, marks: p.marks, sub: null };
+    })
   }));
   _builderQuestionTexts = tpl.map(() => '');
   _builderPredictedTopics = tpl.map(() => '');
@@ -1858,11 +2100,14 @@ function deleteCurrentTemplate() {
 function switchBuilderTab(name) {
   document.querySelectorAll('.builder-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   document.getElementById('builder-tab-manual').style.display = name === 'manual' ? 'block' : 'none';
-  document.getElementById('builder-tab-paste').style.display = name === 'paste' ? 'block' : 'none';
+  document.getElementById('builder-tab-paste').style.display  = name === 'paste'  ? 'block' : 'none';
+  const llmEl = document.getElementById('builder-tab-llm');
+  if (llmEl) llmEl.style.display = name === 'llm' ? 'block' : 'none';
+  if (name === 'llm') populateLLMSubjectSelector();
 }
 
 function builderAddQuestion() {
-  _builderState.push({ parts: [{ l: '', topic: '', marks: 0, sub: null }] });
+  _builderState.push({ parts: [{ l: '', topic: '', topics: [], marks: 0, sub: null }] });
   _builderQuestionTexts.push('');
   _builderPredictedTopics.push('');
   renderBuilder();
@@ -1885,7 +2130,7 @@ function builderAddPart(qIdx) {
   if (q.parts.length === 1 && q.parts[0].l === '' && q.parts[0].marks === 0) {
     q.parts[0].l = nextLetter;
   } else {
-    q.parts.push({ l: nextLetter, topic: '', marks: 0, sub: null });
+    q.parts.push({ l: nextLetter, topic: '', topics: [], marks: 0, sub: null });
   }
   renderBuilder();
 }
@@ -1924,10 +2169,22 @@ function builderSetField(qIdx, field, value, pIdx, sIdx) {
     const p = _builderState[qIdx].parts[pIdx];
     if (field === 'l') p.l = value;
     else if (field === 'marks') p.marks = parseInt(value) || 0;
+    else if (field === 'topics') {
+      // value is a topics array
+      const predicted = _builderPredictedTopics[qIdx] || '';
+      p.topics = Array.isArray(value) ? value : (value ? [value] : []);
+      p.topic = p.topics[0] || ''; // keep legacy field in sync
+      const text = _builderQuestionTexts[qIdx];
+      if (p.topics.length && text) {
+        p.topics.forEach(t => { if (t && t !== predicted) learnFromCorrection(currentSubject, t, text); });
+      }
+      if (p.topics.length) _builderPredictedTopics[qIdx] = '';
+    }
     else if (field === 'topic') {
       const predicted = _builderPredictedTopics[qIdx] || '';
       const prevTopic = p.topic;
       p.topic = value;
+      p.topics = value ? [value] : [];
       // Learn only on explicit user correction of a parsed question
       const text = _builderQuestionTexts[qIdx];
       if (value && text && value !== predicted) {
@@ -1957,15 +2214,22 @@ function renderBuilder() {
       <div class="builder-parts">`;
     q.parts.forEach((p, pi) => {
       const hasSub = p.sub && p.sub.length > 0;
-      const topicOpts = topics.map(t => `<option value="${_esc(t)}"${t===p.topic?' selected':''}>${_esc(t)}</option>`).join('');
+      // Get current topics array (support legacy string)
+      const curTopics = Array.isArray(p.topics) ? p.topics : (p.topic ? [p.topic] : []);
       html += `<div class="builder-part-row">
         <span class="builder-part-label">${p.l ? `(${_esc(p.l)})` : '—'}</span>
         <input class="builder-input mini" type="text" maxlength="3" placeholder="a" value="${_esc(p.l)}" oninput="builderSetField(${qi},'l',this.value,${pi})">
         <input class="builder-input mini" type="number" min="0" max="999" placeholder="marks" value="${hasSub ? p.sub.reduce((s,x)=>s+(x.marks||0),0) : (p.marks||'')}" ${hasSub?'disabled title="Sum of sub-parts"':''} oninput="builderSetField(${qi},'marks',this.value,${pi})">
-        <select class="builder-select topic" style="min-width:160px" onchange="builderSetField(${qi},'topic',this.value,${pi})">
-          <option value="">— topic —</option>
-          ${topicOpts}
-        </select>
+        <div class="topic-tag-input-wrap" id="tti-${qi}-${pi}" onclick="focusTagInput(${qi},${pi})">
+          ${curTopics.map((t,ti) => `<span class="topic-tag-pill"><span>${_esc(t)}</span><button type="button" onclick="event.stopPropagation();removeTopicTag(${qi},${pi},${ti})" title="Remove">×</button></span>`).join('')}
+          <input class="topic-tag-text-input" id="tti-inp-${qi}-${pi}"
+            placeholder="${curTopics.length === 0 ? 'topic…' : '+ topic'}"
+            oninput="onTagInput(event,${qi},${pi})"
+            onkeydown="onTagKeydown(event,${qi},${pi})"
+            onblur="onTagBlur(event,${qi},${pi})"
+            autocomplete="off">
+          <div class="topic-autocomplete" id="tti-ac-${qi}-${pi}" style="display:none"></div>
+        </div>
         <button class="builder-icon-btn" onclick="builderAddSubPart(${qi},${pi})">+ sub</button>
         <button class="builder-icon-btn danger" onclick="builderRemovePart(${qi},${pi})">×</button>
       </div>`;
@@ -1998,7 +2262,8 @@ function updateBuilderSummary() {
       if (p.sub && p.sub.length) {
         p.sub.forEach(s => { totalMarks += (s.marks || 0); leaves++; });
       } else {
-        if (!p.topic) missingTopic++;
+        const hasTopics = (Array.isArray(p.topics) && p.topics.length > 0) || !!p.topic;
+        if (!hasTopics) missingTopic++;
         totalMarks += (p.marks || 0);
         leaves++;
       }
@@ -2159,11 +2424,11 @@ function builderParsePaste() {
       const guess = predictTopic(partProse, currentSubject) || '';
       if (slot.sub && slot.sub.length) {
         const sortedSub = slot.sub.slice().sort((a, b) => _romanValue(a.l) - _romanValue(b.l));
-        parts.push({ l: k, topic: guess, marks: 0, sub: sortedSub });
+        parts.push({ l: k, topic: guess, topics: guess ? [guess] : [], marks: 0, sub: sortedSub });
         sortedSub.forEach(s => { totalMarks += s.marks; leafCount++; });
         partProseList.push({ l: k, prose: partProse, guess });
       } else if (slot.marks > 0) {
-        parts.push({ l: k, topic: guess, marks: slot.marks, sub: null });
+        parts.push({ l: k, topic: guess, topics: guess ? [guess] : [], marks: slot.marks, sub: null });
         totalMarks += slot.marks; leafCount++;
         partProseList.push({ l: k, prose: partProse, guess });
       }
@@ -2204,12 +2469,14 @@ function _flattenBuilderState() {
         for (const s of p.sub) {
           if (!s.l) return { error: `Q${nextQn} sub-part label can't be blank.` };
           if (s.marks <= 0) return { error: `Q${nextQn}${p.l?' '+p.l:''} ${s.l} needs a marks value.` };
-          flatParts.push({ l: `${p.l} ${s.l}`.trim(), topic: p.topic || '', subtopic: '', marks: s.marks });
+          const subTopics = Array.isArray(p.topics) && p.topics.length ? p.topics : (p.topic ? [p.topic] : []);
+          flatParts.push({ l: `${p.l} ${s.l}`.trim(), topic: subTopics[0] || '', topics: subTopics, subtopic: '', marks: s.marks });
         }
       } else {
-        if (!p.topic) return { error: `Q${nextQn}${p.l?' ('+p.l+')':''} needs a topic.` };
+        const partTopics = Array.isArray(p.topics) && p.topics.length ? p.topics : (p.topic ? [p.topic] : []);
+        if (partTopics.length === 0) return { error: `Q${nextQn}${p.l?' ('+p.l+')':''} needs at least one topic.` };
         if (p.marks <= 0) return { error: `Q${nextQn}${p.l?' ('+p.l+')':''} needs a marks value.` };
-        flatParts.push({ l: p.l, topic: p.topic, subtopic: '', marks: p.marks });
+        flatParts.push({ l: p.l, topic: partTopics[0], topics: partTopics, subtopic: '', marks: p.marks });
       }
     }
     if (flatParts.length === 0) return { error: `Q${nextQn} has no parts.` };
@@ -2249,8 +2516,18 @@ function buildPaperForm() {
   // question-level topic; this keeps older seed data rendering correctly.
   def.questions.forEach(q => {
     if (q.topic) {
-      q.parts.forEach(p => { if (!p.topic) p.topic = q.topic; });
+      q.parts.forEach(p => {
+        if (!p.topic) p.topic = q.topic;
+        if (!Array.isArray(p.topics) || p.topics.length === 0) p.topics = [p.topic];
+      });
       if (q.subtopic) q.parts.forEach(p => { if (!p.subtopic) p.subtopic = q.subtopic; });
+    } else {
+      // Ensure topics array exists for all parts
+      q.parts.forEach(p => {
+        if (!Array.isArray(p.topics) || p.topics.length === 0) {
+          p.topics = p.topic ? [p.topic] : [];
+        }
+      });
     }
   });
   const subName = getSubjectName(currentSubject);
@@ -2306,7 +2583,7 @@ function buildPaperForm() {
         const partSubtopic = part.subtopic || '';
         tr.innerHTML = `
           <td><span class="q-num" style="padding-left:16px;color:var(--text3)">Q${q.n}${part.l ? ' '+part.l+')' : ''}</span></td>
-          <td>${showTopic ? `<span class="q-topic">${partTopic}<small>${partSubtopic}</small></span>` : ''}</td>
+          <td>${showTopic ? `<span class="q-topic">${_renderTopicPills(part.topics || (partTopic ? [partTopic] : []))}<small>${partSubtopic}</small></span>` : ''}</td>
           <td class="q-marks">[${part.marks}]</td>
           <td><input class="mark-input" id="${inputId}" type="number" min="0" max="${part.marks}" placeholder="—" data-max="${part.marks}" autocomplete="off"></td>
         `;
@@ -2325,7 +2602,7 @@ function buildPaperForm() {
       const singleSubtopic = part.subtopic || '';
       tr.innerHTML = `
         <td><span class="q-num">Q${q.n}</span></td>
-        <td><span class="q-topic">${singleTopic}<small>${singleSubtopic}</small></span></td>
+        <td><span class="q-topic">${_renderTopicPills(part.topics || (singleTopic ? [singleTopic] : []))}<small>${singleSubtopic}</small></span></td>
         <td class="q-marks">[${part.marks}]</td>
         <td><input class="mark-input" id="${inputId}" type="number" min="0" max="${part.marks}" placeholder="—" data-max="${part.marks}" autocomplete="off"></td>
       `;
@@ -2529,10 +2806,12 @@ function savePaper() {
       const inp = allInputRefs[inputIdx++];
       const val = inp ? parseInt(inp.value) : NaN;
       const scored = isNaN(val) ? null : Math.min(val, part.marks);
+      const scoreTopics = Array.isArray(part.topics) && part.topics.length ? part.topics : (part.topic ? [part.topic] : []);
       scores.push({
         qn: q.n,
         partLabel: part.l,
-        topic: part.topic || '',
+        topic: scoreTopics[0] || '',
+        topics: scoreTopics,
         subtopic: part.subtopic || '',
         marks: part.marks,
         scored: scored
@@ -2742,7 +3021,7 @@ function openReview(id) {
         rowsHtml += `
           <tr>
             <td style="font-family:var(--mono);font-size:12px;color:var(--text3);padding-left:18px">Q${qn}${p.partLabel ? ' '+p.partLabel+')' : ''}</td>
-            <td style="font-size:12px">${_esc(p.topic || '')}${p.subtopic ? `<br><small style="color:var(--text3);font-family:var(--mono)">${_esc(p.subtopic)}</small>` : ''}</td>
+            <td style="font-size:12px">${_renderTopicPills(p.topics || (p.topic ? [p.topic] : []))}${p.subtopic ? `<br><small style="color:var(--text3);font-family:var(--mono)">${_esc(p.subtopic)}</small>` : ''}</td>
             <td style="font-family:var(--mono);font-size:13px;color:${c};text-align:center">${p.scored === null ? '—' : p.scored}/${p.marks}</td>
           </tr>`;
       });
@@ -2751,7 +3030,7 @@ function openReview(id) {
       rowsHtml += `
         <tr>
           <td style="font-family:var(--mono);font-size:12px;color:var(--text2)">Q${qn}</td>
-          <td style="font-size:12px">${_esc(p.topic || '')}${p.subtopic ? `<br><small style="color:var(--text3);font-family:var(--mono)">${_esc(p.subtopic)}</small>` : ''}</td>
+          <td style="font-size:12px">${_renderTopicPills(p.topics || (p.topic ? [p.topic] : []))}${p.subtopic ? `<br><small style="color:var(--text3);font-family:var(--mono)">${_esc(p.subtopic)}</small>` : ''}</td>
           <td style="font-family:var(--mono);font-size:13px;color:${qColor};text-align:center">${p.scored === null ? '—' : p.scored}/${p.marks}</td>
         </tr>`;
     }
@@ -2808,15 +3087,28 @@ function renderAnalytics() {
   }
 
   // Aggregate topic performance across all subjects
+  // Multi-topic parts split marks proportionally across each assigned topic
   const topicMap = {};
   db.records.forEach(r => {
     r.scores.forEach(s => {
       if (s.scored === null) return;
-      const key = `${r.subject}|${s.topic}`;
-      if (!topicMap[key]) topicMap[key] = { topic:s.topic, subject:r.subject, scored:0, total:0 };
-      topicMap[key].scored += s.scored;
-      topicMap[key].total += s.marks;
+      const scoreTopics = Array.isArray(s.topics) && s.topics.length ? s.topics : (s.topic ? [s.topic] : []);
+      if (scoreTopics.length === 0) return;
+      const weight = 1 / scoreTopics.length; // proportional split
+      scoreTopics.forEach(t => {
+        if (!t) return;
+        const key = `${r.subject}|${t}`;
+        if (!topicMap[key]) topicMap[key] = { topic: t, subject: r.subject, scored: 0, total: 0, appearances: 0 };
+        topicMap[key].scored += s.scored * weight;
+        topicMap[key].total  += s.marks  * weight;
+        topicMap[key].appearances++;
+      });
     });
+  });
+  // Round to avoid floating point display ugliness
+  Object.values(topicMap).forEach(t => {
+    t.scored = Math.round(t.scored * 10) / 10;
+    t.total  = Math.round(t.total  * 10) / 10;
   });
 
   // Sort by percentage ascending (weakest first)
@@ -2840,8 +3132,16 @@ function renderAnalytics() {
       <div style="font-family:var(--mono);font-size:11px;color:${color};text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">${subName}</div>`;
     subTopics.forEach(t => {
       const barClass = t.pct >= 70 ? 'bar-good' : t.pct >= 40 ? 'bar-mid' : 'bar-bad';
+      const markDisplay = Number.isInteger(t.scored) && Number.isInteger(t.total)
+        ? `${t.scored}/${t.total}` : `${t.scored.toFixed(1)}/${t.total.toFixed(1)}`;
       html += `<div class="topic-bar-wrap">
-        <div class="topic-bar-label"><span>${t.topic}</span><span>${t.pct}% (${t.scored}/${t.total})</span></div>
+        <div class="topic-bar-label">
+          <span>${t.topic}</span>
+          <span style="display:flex;gap:10px;align-items:center">
+            <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">${t.appearances} part${t.appearances!==1?'s':''}</span>
+            <span>${t.pct}% (${markDisplay})</span>
+          </span>
+        </div>
         <div class="topic-bar-track"><div class="topic-bar-fill ${barClass}" style="width:${t.pct}%"></div></div>
       </div>`;
     });
@@ -3020,8 +3320,8 @@ const SUBJECT_CATALOG = {
   maths:         { name:'Mathematics',       board:'Edexcel',    color:'#f5c542', implemented:true },
   further_maths: { name:'Further Maths',     board:'Edexcel',    color:'#c792ea', implemented:false },
   physics:       { name:'Physics',           board:'OCR A',      color:'#4fc3f7', implemented:true },
-  chemistry:     { name:'Chemistry',         board:'OCR A',      color:'#ffb86c', implemented:false },
-  biology:       { name:'Biology',           board:'OCR A',      color:'#69db7c', implemented:false },
+  chemistry:     { name:'Chemistry',         board:'OCR A',      color:'#ffb86c', implemented:true },
+  biology:       { name:'Biology',           board:'OCR A',      color:'#69db7c', implemented:true },
   cs:            { name:'Computer Science',  board:'OCR A',      color:'#a8e6a3', implemented:true },
   english_lit:   { name:'English Lit.',      board:'AQA',        color:'#ff79c6', implemented:false },
   history:       { name:'History',           board:'AQA',        color:'#bd93f9', implemented:false },
@@ -3583,6 +3883,525 @@ updateProfileUI();
 populateSubjectSelector();
 renderDashboard();
 checkLogin();
+
+// ═══════════════════════════════════════════════════
+//  TOPIC PILL RENDERER (used in table cells)
+// ═══════════════════════════════════════════════════
+function _renderTopicPills(topicsArr) {
+  if (!topicsArr || topicsArr.length === 0) return '<span style="color:var(--text3);font-size:11px;font-family:var(--mono)">—</span>';
+  return topicsArr.map(t =>
+    `<span style="display:inline-flex;align-items:center;background:var(--current-dim);color:var(--current-accent);border-radius:999px;padding:2px 8px;font-size:11px;font-family:var(--mono);margin-right:4px;margin-bottom:2px">${_esc(t)}</span>`
+  ).join('');
+}
+
+// ═══════════════════════════════════════════════════
+//  MULTI-TOPIC TAG INPUT WIDGET
+// ═══════════════════════════════════════════════════
+let _tagACActiveIdx = -1;
+
+function focusTagInput(qi, pi) {
+  const inp = document.getElementById(`tti-inp-${qi}-${pi}`);
+  if (inp) inp.focus();
+}
+
+function _setBuilderTopics(qi, pi, newTopics) {
+  const p = _builderState[qi]?.parts[pi];
+  if (!p) return;
+  p.topics = newTopics.slice();
+  p.topic  = newTopics[0] || '';
+  // Learn from correction
+  const text = _builderQuestionTexts[qi] || '';
+  if (text && currentSubject) {
+    newTopics.forEach(t => { if (t) learnFromCorrection(currentSubject, t, text); });
+  }
+  updateBuilderSummary();
+  // Re-render just this wrap to update pills without full re-render (avoid focus loss)
+  const wrap = document.getElementById(`tti-${qi}-${pi}`);
+  if (!wrap) return;
+  // Rebuild pills
+  const inp = document.getElementById(`tti-inp-${qi}-${pi}`);
+  const ac  = document.getElementById(`tti-ac-${qi}-${pi}`);
+  const inpVal = inp ? inp.value : '';
+  const acDisplay = ac ? ac.style.display : 'none';
+  // Remove existing pills (keep input and autocomplete)
+  const toRemove = Array.from(wrap.querySelectorAll('.topic-tag-pill'));
+  toRemove.forEach(el => el.remove());
+  // Re-insert pills before the input
+  const pills = newTopics.map((t, ti) => {
+    const span = document.createElement('span');
+    span.className = 'topic-tag-pill';
+    span.innerHTML = `<span>${_esc(t)}</span><button type="button" title="Remove">×</button>`;
+    span.querySelector('button').onclick = (e) => { e.stopPropagation(); removeTopicTag(qi, pi, ti); };
+    return span;
+  });
+  pills.forEach(p => wrap.insertBefore(p, inp));
+  if (inp) {
+    inp.placeholder = newTopics.length === 0 ? 'topic…' : '+ topic';
+    inp.value = '';
+  }
+}
+
+function removeTopicTag(qi, pi, ti) {
+  const p = _builderState[qi]?.parts[pi];
+  if (!p) return;
+  const topics = Array.isArray(p.topics) ? p.topics.slice() : (p.topic ? [p.topic] : []);
+  topics.splice(ti, 1);
+  _setBuilderTopics(qi, pi, topics);
+}
+
+function _showAutocomplete(qi, pi, query) {
+  const ac = document.getElementById(`tti-ac-${qi}-${pi}`);
+  if (!ac) return;
+  const allTopics = getTopics(currentSubject);
+  const p = _builderState[qi]?.parts[pi];
+  const used = new Set(Array.isArray(p?.topics) ? p.topics : (p?.topic ? [p.topic] : []));
+  const q = query.toLowerCase().trim();
+  const matches = allTopics.filter(t => !used.has(t) && (!q || t.toLowerCase().includes(q))).slice(0, 8);
+  if (matches.length === 0) { ac.style.display = 'none'; return; }
+  _tagACActiveIdx = -1;
+  ac.innerHTML = matches.map((t, i) =>
+    `<div class="topic-autocomplete-item" data-topic="${_esc(t)}" data-qi="${qi}" data-pi="${pi}"
+      onmousedown="event.preventDefault();_pickACTopic(${qi},${pi},'${_esc(t).replace(/'/g,"\'")}')">
+      ${_esc(t)}
+    </div>`
+  ).join('');
+  ac.style.display = 'block';
+}
+
+function _pickACTopic(qi, pi, topic) {
+  const p = _builderState[qi]?.parts[pi];
+  if (!p) return;
+  const topics = Array.isArray(p.topics) ? p.topics.slice() : (p.topic ? [p.topic] : []);
+  if (!topics.includes(topic)) topics.push(topic);
+  _setBuilderTopics(qi, pi, topics);
+  const ac = document.getElementById(`tti-ac-${qi}-${pi}`);
+  if (ac) ac.style.display = 'none';
+}
+
+function onTagInput(event, qi, pi) {
+  const val = event.target.value;
+  _showAutocomplete(qi, pi, val);
+}
+
+function onTagKeydown(event, qi, pi) {
+  const ac = document.getElementById(`tti-ac-${qi}-${pi}`);
+  const items = ac ? Array.from(ac.querySelectorAll('.topic-autocomplete-item')) : [];
+  const inp = event.target;
+
+  if (event.key === 'ArrowDown') {
+    event.preventDefault();
+    _tagACActiveIdx = Math.min(_tagACActiveIdx + 1, items.length - 1);
+    items.forEach((el, i) => el.classList.toggle('active', i === _tagACActiveIdx));
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault();
+    _tagACActiveIdx = Math.max(_tagACActiveIdx - 1, -1);
+    items.forEach((el, i) => el.classList.toggle('active', i === _tagACActiveIdx));
+  } else if (event.key === 'Enter' || event.key === ',') {
+    event.preventDefault();
+    if (_tagACActiveIdx >= 0 && items[_tagACActiveIdx]) {
+      _pickACTopic(qi, pi, items[_tagACActiveIdx].dataset.topic);
+    } else if (inp.value.trim()) {
+      // Free-text: only add if it matches a known topic (case-insensitive)
+      const typed = inp.value.trim();
+      const allTopics = getTopics(currentSubject);
+      const match = allTopics.find(t => t.toLowerCase() === typed.toLowerCase()) || typed;
+      _pickACTopic(qi, pi, match);
+    }
+    if (ac) ac.style.display = 'none';
+    inp.value = '';
+  } else if (event.key === 'Backspace' && inp.value === '') {
+    event.preventDefault();
+    const p = _builderState[qi]?.parts[pi];
+    if (!p) return;
+    const topics = Array.isArray(p.topics) ? p.topics.slice() : (p.topic ? [p.topic] : []);
+    if (topics.length > 0) {
+      topics.pop();
+      _setBuilderTopics(qi, pi, topics);
+    }
+  } else if (event.key === 'Escape') {
+    if (ac) ac.style.display = 'none';
+    _tagACActiveIdx = -1;
+  }
+}
+
+function onTagBlur(event, qi, pi) {
+  // Delay so mousedown on autocomplete item fires first
+  setTimeout(() => {
+    const ac = document.getElementById(`tti-ac-${qi}-${pi}`);
+    if (ac) ac.style.display = 'none';
+    _tagACActiveIdx = -1;
+    // If user typed something and tabbed away without selecting, add it as a tag
+    const inp = document.getElementById(`tti-inp-${qi}-${pi}`);
+    if (inp && inp.value.trim()) {
+      const typed = inp.value.trim();
+      const allTopics = getTopics(currentSubject);
+      const match = allTopics.find(t => t.toLowerCase() === typed.toLowerCase()) || typed;
+      const p = _builderState[qi]?.parts[pi];
+      if (p) {
+        const topics = Array.isArray(p.topics) ? p.topics.slice() : (p.topic ? [p.topic] : []);
+        if (!topics.includes(match)) topics.push(match);
+        _setBuilderTopics(qi, pi, topics);
+      }
+      inp.value = '';
+    }
+  }, 150);
+}
+
+// ═══════════════════════════════════════════════════
+//  LLM PROMPT + PARSER
+// ═══════════════════════════════════════════════════
+
+// Prompts per subject — injected with topic list at render time
+const LLM_PROMPT_TEMPLATES = {
+  maths: {
+    label: 'Edexcel Maths (9MA0)',
+    intro: `You are a structured data extractor for A-Level past papers.
+I will give you the full text of an Edexcel A-Level Mathematics (9MA0) past paper.
+Your job is to output ONLY a structured list of every question part with its marks and topic tag.
+
+OUTPUT FORMAT RULES (follow exactly — no other text):
+- One line per markable unit (part or whole question)
+- Top-level question: Q{n}
+- Part: two-space indent + {letter})
+- Sub-part: four-space indent + {roman})
+- Marks in [n] brackets — every part MUST have marks
+- Topic tag(s) in [Topic Name] brackets — use ONLY topics from the list below
+- Multiple topics: [Topic A, Topic B] (use sparingly, only when genuinely cross-topic)
+- Ignore: diagrams, context paragraphs, page headers, footers, "DO NOT WRITE HERE", answer lines
+
+TOPIC LIST (pick ONLY from these exact strings):
+{TOPICS}
+
+EXAMPLE OUTPUT:
+Q1
+  a) [3] [Differentiation]
+  b) [4] [Differentiation, Integration]
+  c) [2] [Proof]
+Q2 [Algebra & Functions] [5]
+Q3
+  a) [2] [Trigonometry]
+  b) [6] [Trigonometry]
+
+Now extract the past paper I give you:`
+  },
+  physics: {
+    label: 'OCR A Physics (H556)',
+    intro: `You are a structured data extractor for A-Level past papers.
+I will give you the full text of an OCR A Physics (H556) past paper.
+Your job is to output ONLY a structured list of every question part with its marks and topic tag.
+
+OUTPUT FORMAT RULES (follow exactly — no other text):
+- One line per markable unit (part or whole question)
+- Top-level question: Q{n}
+- Part: two-space indent + {letter})
+- Sub-part: four-space indent + {roman})
+- Marks in [n] brackets — every part MUST have marks
+- Topic tag(s) in [Topic Name] brackets — use ONLY topics from the list below
+- Multiple topics: [Topic A, Topic B] — use [Practical Skills & Data Analysis] as a SECONDARY tag when a part explicitly tests experimental method, uncertainty, or graph analysis
+- Ignore: diagrams, context paragraphs, page headers, footers, answer lines
+
+TOPIC LIST (pick ONLY from these exact strings):
+{TOPICS}
+
+EXAMPLE OUTPUT:
+Q1
+  a) [2] [Motion (Kinematics)]
+  b) [4] [Forces in Action, Practical Skills & Data Analysis]
+    i) [2] [Forces in Action]
+    ii) [2] [Forces in Action]
+Q2 [Waves] [5]
+
+Now extract the past paper I give you:`
+  },
+  cs: {
+    label: 'OCR A Computer Science (H446)',
+    intro: `You are a structured data extractor for A-Level past papers.
+I will give you the full text of an OCR A Computer Science (H446) past paper.
+Your job is to output ONLY a structured list of every question part with its marks and topic tag.
+
+OUTPUT FORMAT RULES (follow exactly — no other text):
+- One line per markable unit (part or whole question)
+- Top-level question: Q{n}
+- Part: two-space indent + {letter})
+- Sub-part: four-space indent + {roman})
+- Marks in [n] brackets — every part MUST have marks
+- Topic tag(s) in [Topic Name] brackets — use ONLY topics from the list below
+- For Paper 2 long questions: tag each part individually even if they share a scenario
+- Multiple topics: [Topic A, Topic B] (rare — only use when a part genuinely spans two distinct topics)
+- Ignore: pseudocode listings, trace tables, code boxes, page headers, footers
+
+TOPIC LIST (pick ONLY from these exact strings):
+{TOPICS}
+
+EXAMPLE OUTPUT:
+Q1
+  a) [4] [CPU Architecture & the Fetch-Decode-Execute Cycle]
+  b) [2] [Memory & Storage]
+Q2
+  a) [3] [Sorting Algorithms]
+  b) [4] [Time & Space Complexity]
+  c) [6] [Recursion]
+
+Now extract the past paper I give you:`
+  },
+  chemistry: {
+    label: 'OCR A Chemistry (H432)',
+    intro: `You are a structured data extractor for A-Level past papers.
+I will give you the full text of an OCR A Chemistry (H432) past paper.
+Your job is to output ONLY a structured list of every question part with its marks and topic tag.
+
+OUTPUT FORMAT RULES (follow exactly — no other text):
+- One line per markable unit (part or whole question)
+- Top-level question: Q{n}
+- Part: two-space indent + {letter})
+- Sub-part: four-space indent + {roman})
+- Marks in [n] brackets — every part MUST have marks
+- Topic tag(s) in [Topic Name] brackets — use ONLY topics from the list below
+- Multiple topics: [Topic A, Topic B] (use sparingly); include [Practical Skills & Experimental Techniques] as a secondary tag when the part tests practical procedure or data analysis
+- Ignore: context passages about molecules/reactions, diagrams, page headers, footers
+
+TOPIC LIST (pick ONLY from these exact strings):
+{TOPICS}
+
+EXAMPLE OUTPUT:
+Q1
+  a) [2] [Atoms, Compounds & Equations]
+  b) [3] [Amount of Substance]
+  c) [4] [Enthalpy Changes, Practical Skills & Experimental Techniques]
+Q2 [Periodicity & the Periodic Table] [5]
+
+Now extract the past paper I give you:`
+  },
+  biology: {
+    label: 'OCR A Biology (H420)',
+    intro: `You are a structured data extractor for A-Level past papers.
+I will give you the full text of an OCR A Biology (H420) past paper.
+Your job is to output ONLY a structured list of every question part with its marks and topic tag.
+
+OUTPUT FORMAT RULES (follow exactly — no other text):
+- One line per markable unit (part or whole question)
+- Top-level question: Q{n}
+- Part: two-space indent + {letter})
+- Sub-part: four-space indent + {roman})
+- Marks in [n] brackets — every part MUST have marks
+- Topic tag(s) in [Topic Name] brackets — use ONLY topics from the list below
+- Include [Practical Skills & Data Analysis] as a secondary tag when a part explicitly tests experimental design, graph interpretation, or data analysis
+- Ignore: context passages about organisms/diseases, diagrams, page headers, footers
+
+TOPIC LIST (pick ONLY from these exact strings):
+{TOPICS}
+
+EXAMPLE OUTPUT:
+Q1
+  a) [3] [Biological Molecules]
+  b) [2] [Enzymes]
+  c) [4] [Practical Skills & Data Analysis, Enzymes]
+Q2 [Cell Structure] [5]
+
+Now extract the past paper I give you:`
+  },
+};
+
+function populateLLMSubjectSelector() {
+  const sel = document.getElementById('llm-prompt-subject-sel');
+  if (!sel || sel.options.length > 1) return; // already populated
+  Object.entries(LLM_PROMPT_TEMPLATES).forEach(([key, tpl]) => {
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = tpl.label;
+    sel.appendChild(opt);
+  });
+  // Pre-select current subject if available
+  if (currentSubject && LLM_PROMPT_TEMPLATES[currentSubject]) {
+    sel.value = currentSubject;
+    updateLLMPromptPreview();
+  }
+}
+
+function updateLLMPromptPreview() {
+  const sel = document.getElementById('llm-prompt-subject-sel');
+  const preview = document.getElementById('llm-prompt-preview');
+  if (!sel || !preview) return;
+  const sub = sel.value;
+  if (!sub || !LLM_PROMPT_TEMPLATES[sub]) {
+    preview.textContent = 'Select a subject above to see the prompt.';
+    return;
+  }
+  const topics = getTopics(sub);
+  const topicList = topics.map(t => '  • ' + t).join('\n');
+  const prompt = LLM_PROMPT_TEMPLATES[sub].intro.replace('{TOPICS}', topicList);
+  preview.textContent = prompt;
+}
+
+function copyLLMPrompt() {
+  const preview = document.getElementById('llm-prompt-preview');
+  const btn = document.getElementById('llm-prompt-copy-btn');
+  if (!preview || !preview.textContent || preview.textContent.startsWith('Select')) {
+    toast('Select a subject first.', 'error'); return;
+  }
+  navigator.clipboard.writeText(preview.textContent).then(() => {
+    if (btn) { btn.textContent = 'Copied!'; setTimeout(() => { btn.textContent = 'Copy Prompt'; }, 2000); }
+    toast('Prompt copied to clipboard.', 'success');
+  }).catch(() => {
+    // Fallback
+    const ta = document.createElement('textarea');
+    ta.value = preview.textContent;
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    if (btn) { btn.textContent = 'Copied!'; setTimeout(() => { btn.textContent = 'Copy Prompt'; }, 2000); }
+    toast('Prompt copied.', 'success');
+  });
+}
+
+// ─── LLM OUTPUT PARSER ───────────────────────────────────────────────────────
+// Parses the structured text format produced by the LLM prompt.
+// Lines look like:
+//   Q3                                    ← top-level question (no marks needed)
+//   Q2 [Waves] [5]                        ← whole-question single part
+//     a) [2] [Motion (Kinematics)]        ← part (2-space indent)
+//     b) [4] [Forces in Action, Waves]    ← part with multiple topics
+//       i) [2] [Forces in Action]         ← sub-part (4-space indent)
+// Marks: first [n] where n is all digits
+// Topics: [anything with letters] that isn't pure digits
+function builderParseLLM() {
+  const raw = document.getElementById('builder-llm-paste')?.value || '';
+  const msgEl = document.getElementById('builder-llm-msg');
+  if (!raw.trim()) { if (msgEl) msgEl.textContent = 'Paste the LLM output first.'; return; }
+
+  const knownTopics = getTopics(currentSubject);
+  const knownSet = new Set(knownTopics.map(t => t.toLowerCase()));
+
+  // Parse [tag] blocks from a line: numbers -> marks, strings -> topics
+  function parseTags(line) {
+    const marks = { value: null };
+    const topics = [];
+    const tagRe = /\[([^\]]+)\]/g;
+    let m;
+    while ((m = tagRe.exec(line)) !== null) {
+      const inner = m[1].trim();
+      // If it's a pure integer -> marks
+      if (/^\d+$/.test(inner)) {
+        if (marks.value === null) marks.value = parseInt(inner);
+      } else {
+        // Could be comma-separated topics
+        inner.split(',').forEach(t => {
+          const s = t.trim();
+          if (s) topics.push(s);
+        });
+      }
+    }
+    return { marks: marks.value, topics };
+  }
+
+  const lines = raw.split(/\r?\n/);
+  const state = [];
+  const texts = [];
+  const predicted = [];
+  let curQ = null;
+  let curPart = null;
+  let sawQ = false;
+
+  for (const rawLine of lines) {
+    // Strip but remember indent level
+    const indent = rawLine.match(/^(\s*)/)[1].length;
+    const line = rawLine.trim();
+    if (!line) continue;
+
+    // Top-level question: Q{n} optionally followed by tags
+    const qm = line.match(/^Q(\d+)/i);
+    if (qm) {
+      const n = parseInt(qm[1]);
+      curQ = { parts: [], _qn: n };
+      curPart = null;
+      sawQ = true;
+      state.push(curQ);
+      texts.push('');
+      predicted.push('');
+      // Tags on Q line -> whole-question single part (if marks present)
+      const { marks, topics } = parseTags(line);
+      if (marks !== null) {
+        // Single-part question
+        const resolvedTopics = topics.length ? topics : [];
+        curQ.parts.push({ l: '', topic: resolvedTopics[0] || '', topics: resolvedTopics, marks, sub: null });
+        curPart = null;
+      }
+      continue;
+    }
+
+    if (!sawQ || !curQ) continue;
+
+    // Sub-part: 4+ spaces (or 2-tab) indent, roman numeral
+    const subm = line.match(/^\((i{1,3}|iv|v|vi{0,3}|ix|x)\)/i);
+    if (subm && indent >= 4 && curPart) {
+      const { marks, topics } = parseTags(line);
+      if (marks !== null) {
+        if (!curPart.sub) curPart.sub = [];
+        const resolvedTopics = topics.length ? topics : (curPart.topics ? curPart.topics.slice() : []);
+        curPart.sub.push({ l: subm[1].toLowerCase(), marks, topics: resolvedTopics });
+        if (curPart.marks > 0) curPart.marks = 0; // sub-parts take over
+      }
+      continue;
+    }
+
+    // Part: 2+ spaces indent, letter + )
+    const pm = line.match(/^\(([a-z])\)/i);
+    if (pm && indent >= 2) {
+      const { marks, topics } = parseTags(line);
+      const resolvedTopics = topics.length ? topics : [];
+      curPart = { l: pm[1].toLowerCase(), topic: resolvedTopics[0] || '', topics: resolvedTopics, marks: marks || 0, sub: null };
+      curQ.parts.push(curPart);
+      continue;
+    }
+  }
+
+  // Validate and convert to _builderState shape
+  if (state.length === 0) {
+    if (msgEl) msgEl.textContent = 'No questions found. Make sure lines start with Q1, Q2 etc.';
+    return;
+  }
+
+  // Filter out questions with no parts
+  const validState = state.filter(q => q.parts.length > 0);
+  if (validState.length === 0) {
+    if (msgEl) msgEl.textContent = 'Questions found but no parts with marks. Check format.';
+    return;
+  }
+
+  // Convert sub-parts: flatten sub onto part.sub
+  validState.forEach(q => {
+    q.parts.forEach(p => {
+      if (p.sub && p.sub.length) {
+        p.marks = 0; // sum of sub-parts
+      }
+    });
+  });
+
+  let totalMarks = 0, leafCount = 0, missingTopics = 0;
+  validState.forEach(q => {
+    q.parts.forEach(p => {
+      if (p.sub && p.sub.length) {
+        p.sub.forEach(s => { totalMarks += s.marks; leafCount++; });
+      } else {
+        totalMarks += p.marks; leafCount++;
+      }
+      if (!p.topics || p.topics.length === 0) missingTopics++;
+    });
+  });
+
+  _builderState = validState;
+  _builderQuestionTexts = validState.map(() => '');
+  _builderPredictedTopics = validState.map(() => '');
+
+  switchBuilderTab('manual');
+  renderBuilder();
+
+  const warn = missingTopics > 0 ? ` ⚠ ${missingTopics} part${missingTopics!==1?'s':''} missing topics — assign below.` : '';
+  if (msgEl) msgEl.textContent = `Parsed ${validState.length} question${validState.length!==1?'s':''}, ${leafCount} part${leafCount!==1?'s':''}, ${totalMarks} marks.${warn}`;
+  toast(`LLM output parsed — ${validState.length} questions loaded. Review topics in builder.`, 'success');
+}
+
 </script>
 </body>
 </html>
