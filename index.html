@@ -4288,7 +4288,7 @@ function openPaperAvgDetail(subject, paperKey) {
     const pct = r.totalAvail > 0 ? Math.round(r.totalScored/r.totalAvail*100) : 0;
     const grade = r.grade || _pctToGrade(pct);
     const dateLabel = r.date ? new Date(r.date).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : '—';
-    return `<tr style="cursor:pointer" onclick="openModal(getDB().records.find(rec=>rec.id===${r.id}))">
+    return `<tr style="cursor:pointer" onclick="openReview(${r.id})">
       <td>${dateLabel}</td>
       <td>${_esc(String(r.year||'—'))}</td>
       <td>${r.totalScored}/${r.totalAvail}</td>
