@@ -669,28 +669,33 @@
     margin-bottom: 20px;
   }
   .stat-card {
-    background: var(--surface);
+    background: linear-gradient(135deg, var(--surface) 0%, color-mix(in srgb, var(--surface) 85%, #1a1c26) 100%);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 20px 22px;
+    padding: 18px 20px;
+    position: relative;
+    overflow: hidden;
   }
   .stat-card-eyebrow {
     font-family: var(--mono);
     font-size: 9px;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--text3);
-    margin-bottom: 6px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
   }
   .stat-card-big {
     font-family: var(--serif);
-    font-size: 44px;
+    font-size: 56px;
     line-height: 1;
     margin-bottom: 4px;
   }
   .stat-card-unit {
     font-family: var(--sans);
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 400;
     opacity: 0.8;
   }
@@ -705,18 +710,45 @@
     color: var(--text3);
     line-height: 1.4;
   }
+  .stat-card-sublabel {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    margin-top: 4px;
+  }
+  /* Projected grade glow */
+  .stat-card-grade-glow {
+    position: absolute;
+    top: -20px; right: -20px;
+    width: 120px; height: 120px;
+    border-radius: 50%;
+    pointer-events: none;
+  }
 
   /* Streak dots */
-  .streak-dots-row { display: flex; gap: 4px; flex-wrap: wrap; }
+  .streak-dots-row { display: flex; gap: 3px; flex-wrap: nowrap; margin-top: 2px; }
   .streak-dot {
-    width: 11px; height: 11px;
-    border-radius: 3px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
     flex-shrink: 0;
   }
-  .streak-dot-on { background: var(--orange); border-color: var(--orange); }
-  .streak-dot-today { outline: 2px solid var(--orange); outline-offset: 1px; }
+  .streak-dot-letter {
+    font-family: var(--mono);
+    font-size: 7px;
+    color: var(--text3);
+    text-transform: uppercase;
+    line-height: 1;
+  }
+  .streak-dot-circle {
+    width: 13px; height: 13px;
+    border-radius: 50%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+  }
+  .streak-dot-on .streak-dot-circle { background: var(--orange); border-color: var(--orange); }
+  .streak-dot-today .streak-dot-circle { outline: 2px solid var(--orange); outline-offset: 1px; }
 
   /* Grade mini chips (per-subject in projected grade card) */
   .grade-mini-row { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -2258,56 +2290,49 @@ const TOPIC_RESOURCES = {
     'Quantum Physics': {
       brief: 'Focus on the photoelectric effect experiment and what each observation tells us about photon theory. Know how to calculate photon energy, stopping voltage, and work function. De Broglie wavelength questions are also common.',
       resources: [
-        { label: 'PMT Notes — Quantum Physics', url: 'https://pmt.physicsandmathstutor.com/download/Physics/A-level/Notes/OCR-A/5-Quantum/quantum-notes.pdf' },
-        { label: 'PMT Q&A — Quantum', url: 'https://www.physicsandmathstutor.com/physics-revision/a-level-physics/quantum-physics/' },
+        { label: 'PMT Revision & Questions — Quantum Physics', url: 'https://www.physicsandmathstutor.com/physics-revision/a-level-physics/quantum-physics/' },
         { label: 'Isaac Physics — Quantum', url: 'https://isaacphysics.org/topics/quantum' },
       ],
     },
     'Electrical Circuits': {
       brief: 'Kirchhoff\'s laws are the foundation — practice applying both systematically. Internal resistance, potential dividers, and EMF questions are high-frequency exam targets. Draw the circuit diagram, label all values, then apply the laws methodically.',
       resources: [
-        { label: 'PMT Notes — Electricity', url: 'https://pmt.physicsandmathstutor.com/download/Physics/A-level/Notes/OCR-A/6-Electricity/electricity-notes.pdf' },
-        { label: 'PMT Q&A — Circuits', url: 'https://www.physicsandmathstutor.com/physics-revision/a-level-physics/electric-circuits/' },
+        { label: 'PMT Revision & Questions — Electricity', url: 'https://www.physicsandmathstutor.com/physics-revision/a-level-physics/electric-circuits/' },
         { label: 'Isaac Physics — Circuits', url: 'https://isaacphysics.org/topics/circuits' },
       ],
     },
     'Practical Skills & Data Analysis': {
       brief: 'OCR A Papers heavily reward practical understanding. Know how to calculate absolute and percentage uncertainty, identify systematic vs random errors, and draw lines of best fit with worst-fit gradients. A clear methodology earns method marks even if your answer is wrong.',
       resources: [
-        { label: 'PMT Notes — Practical Skills', url: 'https://pmt.physicsandmathstutor.com/download/Physics/A-level/Notes/OCR-A/0-Practical-Skills/practical-skills-notes.pdf' },
-        { label: 'PMT Q&A — Practical', url: 'https://www.physicsandmathstutor.com/physics-revision/a-level-physics/practical-skills/' },
+        { label: 'PMT Revision & Questions — Practical Skills', url: 'https://www.physicsandmathstutor.com/physics-revision/a-level-physics/practical-skills/' },
         { label: 'Isaac Physics — Uncertainty', url: 'https://isaacphysics.org/topics/measurement' },
       ],
     },
     'Oscillations (SHM)': {
       brief: 'Know the defining equation a = −ω²x and all its consequences — maximum speed at equilibrium, maximum acceleration at amplitude. Practise the energy-displacement graphs and understand resonance, damping types, and natural frequency.',
       resources: [
-        { label: 'PMT Notes — SHM', url: 'https://pmt.physicsandmathstutor.com/download/Physics/A-level/Notes/OCR-A/13-Oscillations/oscillations-notes.pdf' },
-        { label: 'PMT Q&A — Oscillations', url: 'https://www.physicsandmathstutor.com/physics-revision/a-level-physics/oscillations/' },
+        { label: 'PMT Revision & Questions — Oscillations', url: 'https://www.physicsandmathstutor.com/physics-revision/a-level-physics/oscillations/' },
         { label: 'Isaac Physics — SHM', url: 'https://isaacphysics.org/topics/simple_harmonic_motion' },
       ],
     },
     'Gravitational Fields': {
       brief: 'Compare gravitational and electric fields systematically — the equations are analogous. Know the difference between uniform and radial fields, gravitational potential, and orbital mechanics (linking period, radius, and mass).',
       resources: [
-        { label: 'PMT Notes — Gravitational Fields', url: 'https://pmt.physicsandmathstutor.com/download/Physics/A-level/Notes/OCR-A/11-Gravitational-Fields/gravitational-fields-notes.pdf' },
-        { label: 'PMT Q&A', url: 'https://www.physicsandmathstutor.com/physics-revision/a-level-physics/gravitational-fields/' },
+        { label: 'PMT Revision & Questions — Gravitational Fields', url: 'https://www.physicsandmathstutor.com/physics-revision/a-level-physics/gravitational-fields/' },
         { label: 'Isaac Physics — Gravity', url: 'https://isaacphysics.org/topics/gravitation' },
       ],
     },
     'Thermal Physics': {
       brief: 'The ideal gas model and kinetic theory questions need both conceptual understanding and equation fluency. Link macro quantities (P, V, T) to microscopic behaviour. Specific heat capacity and latent heat are straightforward marks if you learn the equations.',
       resources: [
-        { label: 'PMT Notes — Thermal Physics', url: 'https://pmt.physicsandmathstutor.com/download/Physics/A-level/Notes/OCR-A/10-Thermal-Physics/thermal-physics-notes.pdf' },
-        { label: 'PMT Q&A — Thermal', url: 'https://www.physicsandmathstutor.com/physics-revision/a-level-physics/thermal-physics/' },
+        { label: 'PMT Revision & Questions — Thermal Physics', url: 'https://www.physicsandmathstutor.com/physics-revision/a-level-physics/thermal-physics/' },
         { label: 'Isaac Physics — Thermal', url: 'https://isaacphysics.org/topics/thermal' },
       ],
     },
     'Capacitors': {
       brief: 'The three key areas are capacitance formulae, energy stored (½CV²), and charge/discharge (RC time constants). Sketch the exponential graphs from memory and practice reading τ from experimental data.',
       resources: [
-        { label: 'PMT Notes — Capacitors', url: 'https://pmt.physicsandmathstutor.com/download/Physics/A-level/Notes/OCR-A/14-Capacitors/capacitors-notes.pdf' },
-        { label: 'PMT Q&A — Capacitors', url: 'https://www.physicsandmathstutor.com/physics-revision/a-level-physics/capacitors/' },
+        { label: 'PMT Revision & Questions — Capacitors', url: 'https://www.physicsandmathstutor.com/physics-revision/a-level-physics/capacitors/' },
         { label: 'Isaac Physics — Capacitors', url: 'https://isaacphysics.org/topics/capacitors' },
       ],
     },
@@ -2316,88 +2341,77 @@ const TOPIC_RESOURCES = {
     'CPU Architecture & the Fetch-Decode-Execute Cycle': {
       brief: 'Understand each register\'s role (PC, MAR, MDR, CIR, ACC) and the precise sequence of micro-operations in the FDE cycle. Performance factors (clock speed, cache size, cores, word length) are common 4–6 mark questions.',
       resources: [
-        { label: 'PMT Notes — CPU Architecture', url: 'https://pmt.physicsandmathstutor.com/download/Computer-Science/A-level/Notes/OCR/AS-and-A-level-Computer-Science/Unit-1/1.-Characteristics-of-Contemporary-Processors-Input-Output-and-Storage/CPU-Architecture.pdf' },
-        { label: 'PMT Q&A — CPU', url: 'https://www.physicsandmathstutor.com/computer-science-revision/a-level/cpu-architecture/' },
+        { label: 'PMT Revision & Questions — CPU Architecture', url: 'https://www.physicsandmathstutor.com/computer-science-revision/a-level-computer-science/processors/' },
         { label: 'Craig \'n\' Dave — CPU Architecture (YouTube)', url: 'https://www.youtube.com/watch?v=Z5JC9Ve1sfI' },
       ],
     },
     'Memory & Storage': {
       brief: 'Compare RAM vs ROM, primary vs secondary storage, and different storage technologies (optical, magnetic, SSD). Cache memory (levels, locality of reference) is often tested with the FDE cycle.',
       resources: [
-        { label: 'PMT Notes — Memory', url: 'https://pmt.physicsandmathstutor.com/download/Computer-Science/A-level/Notes/OCR/AS-and-A-level-Computer-Science/Unit-1/1.-Characteristics-of-Contemporary-Processors-Input-Output-and-Storage/Memory.pdf' },
-        { label: 'PMT Q&A — Memory & Storage', url: 'https://www.physicsandmathstutor.com/computer-science-revision/a-level/memory-and-storage/' },
+        { label: 'PMT Revision & Questions — Memory & Storage', url: 'https://www.physicsandmathstutor.com/computer-science-revision/a-level-computer-science/memory-and-storage/' },
         { label: 'Craig \'n\' Dave — Storage (YouTube)', url: 'https://www.youtube.com/watch?v=pO7R-JBqhMo' },
       ],
     },
     'Operating Systems': {
       brief: 'Focus on the four key OS functions: process management, memory management, device management, and file management. Understand different OS types (distributed, embedded, real-time) and why interrupts are critical to multitasking.',
       resources: [
-        { label: 'PMT Notes — Operating Systems', url: 'https://pmt.physicsandmathstutor.com/download/Computer-Science/A-level/Notes/OCR/AS-and-A-level-Computer-Science/Unit-1/2.-Software-and-Software-Development/Operating-Systems.pdf' },
-        { label: 'PMT Q&A — Operating Systems', url: 'https://www.physicsandmathstutor.com/computer-science-revision/a-level/operating-systems/' },
+        { label: 'PMT Revision & Questions — Operating Systems', url: 'https://www.physicsandmathstutor.com/computer-science-revision/a-level-computer-science/software-and-software-development/' },
         { label: 'Craig \'n\' Dave — OS (YouTube)', url: 'https://www.youtube.com/watch?v=pEJiGC-ObQE' },
       ],
     },
     'Networks & Communication Protocols': {
       brief: 'Know the OSI/TCP-IP model layers and what happens at each. Understand routing (packet vs circuit switching), the difference between protocols (TCP vs UDP), and network hardware (switches, routers, DNS). Client-server vs peer-to-peer is a common comparison.',
       resources: [
-        { label: 'PMT Notes — Networks', url: 'https://pmt.physicsandmathstutor.com/download/Computer-Science/A-level/Notes/OCR/AS-and-A-level-Computer-Science/Unit-1/3.-Exchanging-Data/Networks.pdf' },
-        { label: 'PMT Q&A — Networks', url: 'https://www.physicsandmathstutor.com/computer-science-revision/a-level/networks/' },
+        { label: 'PMT Revision & Questions — Networks', url: 'https://www.physicsandmathstutor.com/computer-science-revision/a-level-computer-science/networks/' },
         { label: 'Craig \'n\' Dave — Networking (YouTube)', url: 'https://www.youtube.com/watch?v=gHXFi1s2GQA' },
       ],
     },
     'Representation of Data': {
       brief: 'Practise binary↔hex↔denary conversion until it\'s fast. Two\'s complement, floating-point representation (mantissa/exponent), and character encoding (ASCII, Unicode) all appear regularly. Know the trade-offs: more bits = more precision / larger range.',
       resources: [
-        { label: 'PMT Notes — Data Representation', url: 'https://pmt.physicsandmathstutor.com/download/Computer-Science/A-level/Notes/OCR/AS-and-A-level-Computer-Science/Unit-1/4.-Data-Types-Structures-and-Algorithms/Number-Systems.pdf' },
-        { label: 'PMT Q&A — Data Representation', url: 'https://www.physicsandmathstutor.com/computer-science-revision/a-level/data-representation/' },
+        { label: 'PMT Revision & Questions — Data Representation', url: 'https://www.physicsandmathstutor.com/computer-science-revision/a-level-computer-science/data-types-and-structures/' },
         { label: 'Craig \'n\' Dave — Binary (YouTube)', url: 'https://www.youtube.com/watch?v=jc8BgSP3MeA' },
       ],
     },
     'Data Structures': {
       brief: 'Be comfortable implementing stacks, queues, linked lists, trees, and hash tables in pseudocode. Know the Big-O complexity for common operations and when to choose one structure over another.',
       resources: [
-        { label: 'PMT Notes — Data Structures', url: 'https://pmt.physicsandmathstutor.com/download/Computer-Science/A-level/Notes/OCR/AS-and-A-level-Computer-Science/Unit-1/4.-Data-Types-Structures-and-Algorithms/Data-Structures.pdf' },
-        { label: 'PMT Q&A — Data Structures', url: 'https://www.physicsandmathstutor.com/computer-science-revision/a-level/data-structures/' },
+        { label: 'PMT Revision & Questions — Data Structures', url: 'https://www.physicsandmathstutor.com/computer-science-revision/a-level-computer-science/data-types-and-structures/' },
         { label: 'Craig \'n\' Dave — Data Structures (YouTube)', url: 'https://www.youtube.com/watch?v=p65AHm9MX80' },
       ],
     },
     'Algorithms': {
       brief: 'Trace through algorithms step-by-step in the exam — don\'t try to shortcut it. Know the key algorithms: bubble, merge, quick, insertion sort; binary vs linear search; Dijkstra\'s. Be able to state the time complexity of each and explain why.',
       resources: [
-        { label: 'PMT Notes — Algorithms', url: 'https://pmt.physicsandmathstutor.com/download/Computer-Science/A-level/Notes/OCR/AS-and-A-level-Computer-Science/Unit-2/Algorithms.pdf' },
-        { label: 'PMT Q&A — Algorithms', url: 'https://www.physicsandmathstutor.com/computer-science-revision/a-level/algorithms/' },
+        { label: 'PMT Revision & Questions — Algorithms', url: 'https://www.physicsandmathstutor.com/computer-science-revision/a-level-computer-science/algorithms/' },
         { label: 'VisuAlgo — Algorithm Animations', url: 'https://visualgo.net/en' },
       ],
     },
     'Programming Concepts': {
       brief: 'OCR A Paper 2 tests programming heavily. Review OOP (classes, inheritance, encapsulation, polymorphism), recursion base cases, and file I/O. Trace recursive functions carefully — draw the call stack if needed.',
       resources: [
-        { label: 'PMT Notes — Programming', url: 'https://pmt.physicsandmathstutor.com/download/Computer-Science/A-level/Notes/OCR/AS-and-A-level-Computer-Science/Unit-2/Programming-Concepts.pdf' },
-        { label: 'PMT Q&A — Programming', url: 'https://www.physicsandmathstutor.com/computer-science-revision/a-level/programming-concepts/' },
+        { label: 'PMT Revision & Questions — Programming', url: 'https://www.physicsandmathstutor.com/computer-science-revision/a-level-computer-science/programming/' },
         { label: 'Craig \'n\' Dave — OOP (YouTube)', url: 'https://www.youtube.com/watch?v=lbXsrHGhBAU' },
       ],
     },
     'Boolean Algebra & Logic Gates': {
       brief: 'Practice simplifying Boolean expressions using De Morgan\'s laws and Karnaugh maps. Draw logic gate diagrams from expressions and vice versa. Half-adder and full-adder circuits appear regularly alongside flip-flops.',
       resources: [
-        { label: 'PMT Notes — Boolean Algebra', url: 'https://pmt.physicsandmathstutor.com/download/Computer-Science/A-level/Notes/OCR/AS-and-A-level-Computer-Science/Unit-1/5.-Legal-Moral-Cultural-and-Ethical-Issues/Boolean-Algebra.pdf' },
-        { label: 'PMT Q&A — Boolean Logic', url: 'https://www.physicsandmathstutor.com/computer-science-revision/a-level/boolean-algebra/' },
+        { label: 'PMT Revision & Questions — Boolean Algebra', url: 'https://www.physicsandmathstutor.com/computer-science-revision/a-level-computer-science/boolean-algebra/' },
         { label: 'Nand2Tetris (free course)', url: 'https://www.nand2tetris.org/' },
       ],
     },
     'Databases & SQL': {
       brief: 'Know how to normalise to 3NF (remove repeating groups → 1NF; remove partial dependencies → 2NF; remove transitive dependencies → 3NF). Write SELECT queries with JOIN, WHERE, GROUP BY, and aggregate functions. Entity-relationship diagrams are almost always tested.',
       resources: [
-        { label: 'PMT Notes — Databases', url: 'https://pmt.physicsandmathstutor.com/download/Computer-Science/A-level/Notes/OCR/AS-and-A-level-Computer-Science/Unit-1/3.-Exchanging-Data/Databases.pdf' },
-        { label: 'PMT Q&A — SQL', url: 'https://www.physicsandmathstutor.com/computer-science-revision/a-level/databases/' },
+        { label: 'PMT Revision & Questions — Databases & SQL', url: 'https://www.physicsandmathstutor.com/computer-science-revision/a-level-computer-science/databases/' },
         { label: 'W3Schools SQL Tutorial', url: 'https://www.w3schools.com/sql/' },
       ],
     },
     'System Software & Software Development': {
       brief: 'Know the software development lifecycle models (waterfall, agile, spiral) and their trade-offs. Understand assemblers, compilers, interpreters, and linkers/loaders. Testing types (black-box, white-box, integration) are tested with short justify-your-choice questions.',
       resources: [
-        { label: 'PMT Notes — Software Development', url: 'https://pmt.physicsandmathstutor.com/download/Computer-Science/A-level/Notes/OCR/AS-and-A-level-Computer-Science/Unit-1/2.-Software-and-Software-Development/Software-Development.pdf' },
-        { label: 'PMT Q&A — Software Development', url: 'https://www.physicsandmathstutor.com/computer-science-revision/a-level/software-development/' },
+        { label: 'PMT Revision & Questions — Software Development', url: 'https://www.physicsandmathstutor.com/computer-science-revision/a-level-computer-science/software-and-software-development/' },
         { label: 'Craig \'n\' Dave — Languages (YouTube)', url: 'https://www.youtube.com/watch?v=vfVZ_vHlsOY' },
       ],
     },
@@ -3773,15 +3787,17 @@ function renderDashboard() {
 
   const streakMsg = streak >= 14 ? 'Two-week streak.' : streak >= 7 ? 'Strong week.' : streak >= 3 ? 'Solid rhythm.' : streak >= 1 ? 'Keep it going.' : 'Start your streak today.';
 
-  // Streak mini-calendar: last 14 days
+  // Streak mini-calendar: last 13 days
   const dateSet = new Set(db.records.map(r => (r.date || '').split('T')[0]).filter(Boolean));
+  const dayLetters = ['S','M','T','W','T','F','S'];
   let streakDots = '';
-  for (let i = 13; i >= 0; i--) {
+  for (let i = 12; i >= 0; i--) {
     const d = new Date(); d.setDate(d.getDate() - i);
     const key = d.toISOString().split('T')[0];
     const active = dateSet.has(key);
     const isToday = i === 0;
-    streakDots += `<span class="streak-dot${active?' streak-dot-on':''}${isToday?' streak-dot-today':''}"></span>`;
+    const letter = dayLetters[d.getDay()];
+    streakDots += `<span class="streak-dot${active?' streak-dot-on':''}${isToday?' streak-dot-today':''}"><span class="streak-dot-letter">${letter}</span><span class="streak-dot-circle"></span></span>`;
   }
 
   // Per-subject grade projection
@@ -3807,15 +3823,52 @@ function renderDashboard() {
     ? `Target: ${totalPapers + Math.max(0, Math.ceil(mocksCountdown / 3))} by mocks. ${Math.max(0, Math.ceil(mocksCountdown / 3))} to go.`
     : `${subjects.filter(s => db.records.some(r => r.subject===s)).length} subject${subjects.length!==1?'s':''} · ${monthSpan} month${monthSpan!==1?'s':''}`;
 
+  // Overall projected grade (best grade across subjects)
+  const gradeOrder = ['A*','A','B','C','D','E','U'];
+  let headlineGrade = null;
+  let headlineGradeColor = 'var(--text)';
+  let headlineGlowColor = '#ffffff';
+  let recentPctDelta = null;
+  subjects.forEach(sub => {
+    if (subjectGrades[sub]) {
+      const sg = subjectGrades[sub];
+      if (headlineGrade === null || gradeOrder.indexOf(sg.grade) < gradeOrder.indexOf(headlineGrade)) {
+        headlineGrade = sg.grade;
+      }
+    }
+  });
+  if (headlineGrade === 'A*' || headlineGrade === 'A') { headlineGradeColor = 'var(--green)'; headlineGlowColor = '#22c55e'; }
+  else if (headlineGrade === 'B') { headlineGradeColor = 'var(--accent-m)'; headlineGlowColor = '#fbbf24'; }
+  else if (headlineGrade === 'C') { headlineGradeColor = 'var(--orange)'; headlineGlowColor = '#f97316'; }
+  else if (headlineGrade) { headlineGradeColor = 'var(--red)'; headlineGlowColor = '#ef4444'; }
+
+  // "+X% in last N papers" motivational message
+  let motivMsg = '';
+  if (db.records.length >= 4) {
+    const sorted4 = [...db.records].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,4);
+    const avgLast4 = sorted4.reduce((s,r)=>s+(r.totalAvail>0?r.totalScored/r.totalAvail*100:0),0)/sorted4.length;
+    const allAvg = db.records.reduce((s,r)=>s+(r.totalAvail>0?r.totalScored/r.totalAvail*100:0),0)/db.records.length;
+    const delta = Math.round(avgLast4 - allAvg);
+    recentPctDelta = delta;
+    motivMsg = delta >= 0 ? `+${delta}% in the last 4 papers` : `${delta}% in the last 4 papers`;
+  }
+
   html += `<div class="stat-cards-row">
     <div class="stat-card">
-      <div class="stat-card-eyebrow">Streak</div>
+      <div class="stat-card-eyebrow">🔥 Streak</div>
       <div class="stat-card-big" style="color:var(--orange)">${streak}<span class="stat-card-unit"> day${streak!==1?'s':''}</span></div>
-      <div class="stat-card-label" style="margin-bottom:12px">${streakMsg}</div>
+      <div class="stat-card-label" style="margin-bottom:10px">${streakMsg}</div>
       <div class="streak-dots-row">${streakDots}</div>
     </div>
+    <div class="stat-card" style="background:linear-gradient(135deg, var(--surface) 0%, color-mix(in srgb, var(--surface) 80%, ${headlineGlowColor}22) 100%)">
+      <div class="stat-card-grade-glow" style="background:radial-gradient(circle, ${headlineGlowColor}22 0%, transparent 70%)"></div>
+      <div class="stat-card-eyebrow">◎ Projected Grade</div>
+      <div class="stat-card-big" style="color:${headlineGradeColor}">${headlineGrade || '—'}</div>
+      <div class="stat-card-label">${Math.round(db.records.reduce((s,r)=>s+(r.totalAvail>0?r.totalScored/r.totalAvail*100:0),0)/db.records.length)}% rolling avg.</div>
+      ${motivMsg ? `<div class="stat-card-sublabel" style="color:${recentPctDelta>=0?'var(--green)':'var(--red)'}">${motivMsg}</div>` : ''}
+    </div>
     <div class="stat-card">
-      <div class="stat-card-eyebrow">Papers Logged</div>
+      <div class="stat-card-eyebrow">□ Papers Logged</div>
       <div class="stat-card-big" style="color:var(--text)">${totalPapers}</div>
       <div class="stat-card-label" style="margin-bottom:10px">${paperTarget}</div>
       <div class="papers-mini-grid">${papersBySubj}</div>
