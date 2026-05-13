@@ -5295,14 +5295,15 @@ let _adminBuilderState = [];
 
 function renderAdminPanel() {
   const el = document.getElementById('admin-content');
-
-  // Selector row
-  let subjectOpts = Object.keys(PAPERS).map(k =>
+  const subjectOpts = Object.keys(PAPERS).map(k =>
     `<option value="${k}">${PAPERS[k].name}</option>`).join('');
+
+  // Show the LLM prompt template so you can copy it quickly
+  const llmPromptHint = LLM_PROMPT_TEMPLATES?.base || '';
 
   el.innerHTML = `
     <div class="card" style="margin-bottom:20px">
-      <div class="card-title" style="margin-bottom:16px">1. Select paper to author</div>
+      <div class="card-title" style="margin-bottom:16px">1. Select paper</div>
       <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
         <div>
           <label style="font-family:var(--mono);font-size:10px;color:var(--text3);display:block;margin-bottom:4px">SUBJECT</label>
@@ -5318,7 +5319,7 @@ function renderAdminPanel() {
         </div>
         <div>
           <label style="font-family:var(--mono);font-size:10px;color:var(--text3);display:block;margin-bottom:4px">YEAR</label>
-          <select id="adm-year" style="background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:8px 12px;border-radius:var(--radius-sm);font-family:var(--mono);font-size:12px;min-width:100px" onchange="adminOnYearChange()">
+          <select id="adm-year" style="background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:8px 12px;border-radius:var(--radius-sm);font-family:var(--mono);font-size:12px;min-width:100px">
             <option value="">— year —</option>
           </select>
         </div>
@@ -5329,30 +5330,31 @@ function renderAdminPanel() {
 
     <div id="adm-builder-wrap" style="display:none">
       <div class="card" style="margin-bottom:16px">
-        <div class="card-title" style="margin-bottom:12px">2. Paste PDF text → parse</div>
-        <textarea id="adm-paste" rows="10" style="width:100%;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:12px;border-radius:var(--radius-sm);font-family:var(--mono);font-size:12px;resize:vertical" placeholder="Paste the full PDF text of the question paper here…"></textarea>
-        <div style="display:flex;gap:8px;margin-top:10px">
-          <button class="btn btn-primary" onclick="adminParse()">Parse PDF</button>
-          <span id="adm-parse-msg" style="font-family:var(--mono);font-size:11px;color:var(--text3);align-self:center"></span>
+        <div class="card-title" style="margin-bottom:8px">2. Paste LLM output → parse</div>
+        <p style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-bottom:12px;line-height:1.6">
+          Use the same LLM prompt as normal (PDF text → LLM → paste output here). The parser picks up question numbers, parts, marks and topics automatically.
+        </p>
+        <textarea id="adm-paste" rows="12" style="width:100%;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:12px;border-radius:var(--radius-sm);font-family:var(--mono);font-size:12px;resize:vertical" placeholder="Paste LLM output here — same format as normal paper import…"></textarea>
+        <div style="display:flex;gap:8px;margin-top:10px;align-items:center">
+          <button class="btn btn-primary" onclick="adminParse()">Parse &amp; Generate</button>
+          <span id="adm-parse-msg" style="font-family:var(--mono);font-size:11px;color:var(--text3)"></span>
         </div>
       </div>
 
-      <div id="adm-manual-builder" style="display:none">
+      <div id="adm-output-wrap" style="display:none">
         <div class="card" style="margin-bottom:16px">
-          <div class="card-title" style="margin-bottom:12px">3. Review &amp; assign topics</div>
-          <p style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-bottom:14px">Check marks and assign a topic to each part. Then click "Generate code" at the bottom.</p>
-          <div id="adm-builder-rows"></div>
-          <button class="btn btn-ghost" style="margin-top:10px;font-size:12px" onclick="adminAddQuestion()">+ Add question</button>
-        </div>
-
-        <div class="card">
-          <div class="card-title" style="margin-bottom:12px">4. Generate &amp; copy code</div>
-          <p style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-bottom:14px">Click to generate the JS snippet. Copy it and paste it into <code>BAKED_TEMPLATES</code> in index.html, then commit.</p>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn btn-primary" onclick="adminGenerateCode()">Generate code</button>
-            <button class="btn btn-ghost" onclick="adminCopyCode()">Copy to clipboard</button>
+          <div class="card-title" style="margin-bottom:8px">3. Copy outputs</div>
+          <p style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-bottom:14px;line-height:1.6">
+            Copy both outputs. The <b>JSON entry</b> goes into <code>baked_templates.json</code> (Claude reads this to rebuild the code next session). The <b>JS snippet</b> goes directly into <code>BAKED_TEMPLATES</code> in index.html for immediate use.
+          </p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+            <button class="btn btn-primary" onclick="adminCopyJSON()">Copy JSON entry</button>
+            <button class="btn btn-ghost" onclick="adminCopyJS()">Copy JS snippet</button>
           </div>
-          <pre id="adm-code-output" style="margin-top:14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;font-size:11px;font-family:var(--mono);color:var(--text2);overflow-x:auto;white-space:pre-wrap;display:none"></pre>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">JSON (for baked_templates.json)</div>
+          <pre id="adm-json-output" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;font-size:11px;font-family:var(--mono);color:var(--text2);overflow-x:auto;white-space:pre-wrap;max-height:220px;overflow-y:auto"></pre>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin:12px 0 6px;text-transform:uppercase;letter-spacing:.06em">JS snippet (paste into BAKED_TEMPLATES block in index.html)</div>
+          <pre id="adm-js-output" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;font-size:11px;font-family:var(--mono);color:var(--text2);overflow-x:auto;white-space:pre-wrap;max-height:220px;overflow-y:auto"></pre>
         </div>
       </div>
     </div>
@@ -5373,8 +5375,7 @@ function adminOnSubjectChange() {
   if (!sub) return;
   Object.keys(PAPERS[sub].papers).forEach(pk => {
     const opt = document.createElement('option');
-    opt.value = pk;
-    opt.textContent = pk;
+    opt.value = pk; opt.textContent = pk;
     paperSel.appendChild(opt);
   });
 }
@@ -5389,136 +5390,91 @@ function adminOnPaperChange() {
   YEARS[board].forEach(y => {
     const opt = document.createElement('option');
     opt.value = y;
-    const hasBaked = isBakedTemplate(sub, pk, y);
-    opt.textContent = hasBaked ? `${y} ✓ already baked` : y;
+    opt.textContent = isBakedTemplate(sub, pk, y) ? `${y} ✓` : y;
     yearSel.appendChild(opt);
   });
 }
-
-function adminOnYearChange() {}
 
 function adminLoad() {
   const sub = document.getElementById('adm-sub').value;
   const pk = document.getElementById('adm-paper').value;
   const yr = parseInt(document.getElementById('adm-year').value);
   const status = document.getElementById('adm-status');
-  if (!sub || !pk || !yr) { status.textContent = 'Select subject, paper and year first.'; return; }
-  _adminSubject = sub;
-  _adminPaperKey = pk;
-  _adminYear = yr;
+  if (!sub || !pk || !yr) { status.textContent = 'Select all three fields first.'; return; }
+  _adminSubject = sub; _adminPaperKey = pk; _adminYear = yr;
   _adminBuilderState = [];
   const hasBaked = isBakedTemplate(sub, pk, yr);
   status.innerHTML = hasBaked
-    ? `<span style="color:var(--green)">✓ Already baked — editing will overwrite.</span>`
-    : `<span style="color:var(--orange)">No baked template yet for ${PAPERS[sub].name} ${pk} ${yr}.</span>`;
+    ? `<span style="color:var(--green)">✓ Already baked for this year — re-parsing will overwrite.</span>`
+    : `<span style="color:var(--orange)">${PAPERS[sub].name} ${pk} ${yr} — not yet baked.</span>`;
   document.getElementById('adm-builder-wrap').style.display = '';
-  document.getElementById('adm-manual-builder').style.display = 'none';
+  document.getElementById('adm-output-wrap').style.display = 'none';
   document.getElementById('adm-paste').value = '';
   document.getElementById('adm-parse-msg').textContent = '';
-  document.getElementById('adm-code-output').style.display = 'none';
 }
 
 function adminParse() {
   const text = document.getElementById('adm-paste').value.trim();
   const msg = document.getElementById('adm-parse-msg');
-  if (!text) { msg.textContent = 'Paste PDF text first.'; return; }
-  // Reuse the existing LLM parser
+  if (!text) { msg.textContent = 'Paste LLM output first.'; return; }
+  if (!_adminSubject || !_adminPaperKey || !_adminYear) { msg.textContent = 'Load a paper first.'; return; }
+
   const result = builderParseLLM(text, _adminSubject);
-  if (!result || result.length === 0) { msg.textContent = 'Could not parse — check format.'; return; }
+  if (!result || result.length === 0) { msg.textContent = '✗ Could not parse — check the format matches the normal LLM output.'; return; }
+
+  const totalMarks = result.reduce((s, q) => s + q.parts.reduce((ps, p) => ps + (p.marks||0), 0), 0);
+  const missingTopics = result.reduce((s, q) => s + q.parts.filter(p => !p.topic && !(p.topics?.length)).length, 0);
+  msg.textContent = `✓ Parsed ${result.length} questions, ${totalMarks} marks${missingTopics ? `, ${missingTopics} parts missing topic` : ', all topics detected'}.`;
+
   _adminBuilderState = result;
-  msg.textContent = `Parsed ${result.length} questions. Assign topics below.`;
-  document.getElementById('adm-manual-builder').style.display = '';
-  renderAdminBuilder();
+  adminGenerateOutputs();
 }
 
-function renderAdminBuilder() {
-  const el = document.getElementById('adm-builder-rows');
-  const topics = getTopics(_adminSubject);
-  const topicOpts = topics.map(t => `<option value="${_esc(t)}">${_esc(t)}</option>`).join('');
-  el.innerHTML = _adminBuilderState.map((q, qi) => {
-    const partsHtml = q.parts.map((p, pi) => {
-      const label = p.l ? `(${p.l})` : `Q${qi+1}`;
-      const topicVal = p.topic || p.topics?.[0] || '';
-      return `<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;padding-left:16px">
-        <span style="font-family:var(--mono);font-size:11px;color:var(--text3);min-width:40px">${_esc(label)}</span>
-        <input type="number" min="0" max="40" value="${p.marks||0}" style="width:52px;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:4px 6px;border-radius:4px;font-family:var(--mono);font-size:12px" onchange="_adminSetMarks(${qi},${pi},this.value)">
-        <span style="font-family:var(--mono);font-size:10px;color:var(--text3)">marks</span>
-        <select style="flex:1;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:4px 8px;border-radius:4px;font-family:var(--mono);font-size:11px" onchange="_adminSetTopic(${qi},${pi},this.value)">
-          <option value="">— topic —</option>${topicOpts}
-        </select>
-      </div>`;
-    }).join('');
-    return `<div style="margin-bottom:14px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm)">
-      <div style="font-family:var(--mono);font-size:11px;color:var(--text2);margin-bottom:8px;font-weight:600">Q${qi+1}</div>
-      ${partsHtml}
-    </div>`;
-  }).join('');
-  // Pre-select any topics that were auto-detected by parser
-  _adminBuilderState.forEach((q, qi) => {
-    q.parts.forEach((p, pi) => {
-      const topicVal = p.topic || p.topics?.[0] || '';
-      if (topicVal) {
-        const selects = el.querySelectorAll('select');
-        const idx = qi * q.parts.length + pi; // rough
-        if (selects[idx]) selects[idx].value = topicVal;
-      }
-    });
-  });
-}
-
-function _adminSetMarks(qi, pi, v) {
-  if (_adminBuilderState[qi]?.parts[pi]) _adminBuilderState[qi].parts[pi].marks = parseInt(v) || 0;
-}
-function _adminSetTopic(qi, pi, v) {
-  if (_adminBuilderState[qi]?.parts[pi]) {
-    _adminBuilderState[qi].parts[pi].topic = v;
-    _adminBuilderState[qi].parts[pi].topics = v ? [v] : [];
-  }
-}
-
-function adminAddQuestion() {
-  _adminBuilderState.push({ parts: [{ l: '', topic: '', topics: [], marks: 0 }] });
-  renderAdminBuilder();
-}
-
-function adminGenerateCode() {
-  // Validate
-  for (let qi = 0; qi < _adminBuilderState.length; qi++) {
-    const q = _adminBuilderState[qi];
-    for (let pi = 0; pi < q.parts.length; pi++) {
-      const p = q.parts[pi];
-      if (!p.topic) { toast(`Q${qi+1} part ${pi+1} needs a topic.`, 'error'); return; }
-      if (!p.marks || p.marks <= 0) { toast(`Q${qi+1} part ${pi+1} needs marks > 0.`, 'error'); return; }
-    }
-  }
-
+function adminGenerateOutputs() {
   const questions = _adminBuilderState.map((q, qi) => ({
     n: qi + 1,
     topic: '',
     subtopic: '',
     parts: q.parts.map(p => ({
       l: p.l || '',
-      topic: p.topic,
-      topics: p.topics?.length ? p.topics : [p.topic],
+      topic: p.topic || p.topics?.[0] || '',
+      topics: p.topics?.length ? p.topics : (p.topic ? [p.topic] : ['']),
       subtopic: '',
-      marks: p.marks,
+      marks: p.marks || 0,
     })),
   }));
 
   const totalMarks = questions.reduce((s, q) => s + q.parts.reduce((ps, p) => ps + p.marks, 0), 0);
-  const snippet = `// ${PAPERS[_adminSubject]?.name} ${_adminPaperKey} ${_adminYear} — ${totalMarks} marks
-BAKED_TEMPLATES['${_adminSubject}']['${_adminPaperKey}'][${_adminYear}] = ${JSON.stringify(questions, null, 2)};`;
+  const subName = PAPERS[_adminSubject]?.name;
 
-  const out = document.getElementById('adm-code-output');
-  out.textContent = snippet;
-  out.style.display = 'block';
-  toast(`Code generated — ${questions.length} questions, ${totalMarks} marks.`, 'success');
+  // JSON entry — goes into baked_templates.json
+  const jsonEntry = {
+    subject: _adminSubject,
+    paperKey: _adminPaperKey,
+    year: _adminYear,
+    totalMarks,
+    questions,
+  };
+  document.getElementById('adm-json-output').textContent = JSON.stringify(jsonEntry, null, 2);
+
+  // JS snippet — paste directly into BAKED_TEMPLATES block in index.html
+  const jsSnippet = `// ${subName} ${_adminPaperKey} ${_adminYear} — ${totalMarks} marks\nBAKED_TEMPLATES['${_adminSubject}']['${_adminPaperKey}'][${_adminYear}] = ${JSON.stringify(questions, null, 2)};`;
+  document.getElementById('adm-js-output').textContent = jsSnippet;
+
+  document.getElementById('adm-output-wrap').style.display = '';
+  toast(`Generated — ${questions.length} questions, ${totalMarks} marks.`, 'success');
 }
 
-function adminCopyCode() {
-  const code = document.getElementById('adm-code-output').textContent;
-  if (!code) { toast('Generate code first.', 'error'); return; }
-  navigator.clipboard.writeText(code).then(() => toast('Copied to clipboard!', 'success'));
+function adminCopyJSON() {
+  const text = document.getElementById('adm-json-output').textContent;
+  if (!text) { toast('Parse a paper first.', 'error'); return; }
+  navigator.clipboard.writeText(text).then(() => toast('JSON entry copied!', 'success'));
+}
+
+function adminCopyJS() {
+  const text = document.getElementById('adm-js-output').textContent;
+  if (!text) { toast('Parse a paper first.', 'error'); return; }
+  navigator.clipboard.writeText(text).then(() => toast('JS snippet copied!', 'success'));
 }
 
 function renderAdminCoverage() {

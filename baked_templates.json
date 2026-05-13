@@ -1,0 +1,5 @@
+{
+  "_readme": "Persistent store of baked paper templates. Each entry is added via the admin panel (?admin=1) → Parse & Generate → Copy JSON entry. Claude reads this file at the start of each session to know what templates exist and inject them into BAKED_TEMPLATES in index.html.",
+  "_format": "{ subject, paperKey, year, totalMarks, questions: [{n, topic, subtopic, parts: [{l, topic, topics, subtopic, marks}]}] }",
+  "templates": []
+}
