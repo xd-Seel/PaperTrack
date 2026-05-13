@@ -882,7 +882,17 @@
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 18px 20px;
+    cursor: pointer;
+    transition: border-color .15s, box-shadow .15s;
   }
+  .revision-plan-card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+  .rp-modal-resources { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+  .rp-modal-resources li a { color: var(--accent); text-decoration: none; font-size: 13px; }
+  .rp-modal-resources li a:hover { text-decoration: underline; }
+  .rp-modal-brief { font-size: 14px; line-height: 1.65; color: var(--text2); margin-bottom: 20px; white-space: pre-line; }
   .revision-plan-num {
     font-family: var(--mono);
     font-size: 10px;
@@ -1695,6 +1705,17 @@
   </div>
 </div>
 
+<!-- ── REVISION PLAN MODAL ── -->
+<div class="modal-overlay" id="revision-plan-modal">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-title" id="rp-title">Topic Revision Guide</div>
+    <div id="rp-content"></div>
+    <div class="flex mt16" style="justify-content:flex-end;gap:8px">
+      <button class="btn btn-ghost" onclick="closeRevisionModal()">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── REVIEW MODAL ── -->
 <div class="modal-overlay" id="review-modal">
   <div class="modal">
@@ -1754,28 +1775,9 @@ const PAPERS = {
           2020: 'https://www.physicsandmathstutor.com/pdf-pages/?pdf=https%3A%2F%2Fpmt.physicsandmathstutor.com%2Fdownload%2FComputer-Science%2FA-level%2FPast-Papers%2FOCR%2FPaper-1%2FNovember%202020%20QP%20-%20Paper%201%20OCR%20Computer%20Science%20A-level.pdf',
           2021: 'https://www.physicsandmathstutor.com/pdf-pages/?pdf=https%3A%2F%2Fpmt.physicsandmathstutor.com%2Fdownload%2FComputer-Science%2FA-level%2FPast-Papers%2FOCR%2FPaper-1%2FNovember%202021%20QP%20-%20Paper%201%20OCR%20Computer%20Science%20A-level.pdf',
           2022: 'https://www.physicsandmathstutor.com/pdf-pages/?pdf=https%3A%2F%2Fpmt.physicsandmathstutor.com%2Fdownload%2FComputer-Science%2FA-level%2FPast-Papers%2FOCR%2FPaper-1%2FJune%202022%20QP%20-%20Paper%201%20OCR%20Computer%20Science%20A-level.pdf',
-          2023: 'https://www.physicsandmathstutor.com/pdf-pages/?pdf=https%3A%2F%2Fpmt.physicsandmathstutor.com%2Fdownload%2FComputer-Science%2FA-level%2FPast-Papers%2FOCR%2FPaper-1%2FJune%202023%20QP%20-%20Paper%201%20OCR%20Computer%20Science%20A-level.pdf',
-          2024: 'https://www.physicsandmathstutor.com/pdf-pages/?pdf=https%3A%2F%2Fpmt.physicsandmathstutor.com%2Fdownload%2FComputer-Science%2FA-level%2FPast-Papers%2FOCR%2FPaper-1%2FJune%202024%20QP%20-%20Paper%201%20OCR%20Computer%20Science%20A-level.pdf',
+          2023: ‘https://www.physicsandmathstutor.com/pdf-pages/?pdf=https%3A%2F%2Fpmt.physicsandmathstutor.com%2Fdownload%2FComputer-Science%2FA-level%2FPast-Papers%2FOCR%2FPaper-1%2FJune%202023%20QP%20-%20Paper%201%20OCR%20Computer%20Science%20A-level.pdf’,
+          2024: ‘https://www.physicsandmathstutor.com/pdf-pages/?pdf=https%3A%2F%2Fpmt.physicsandmathstutor.com%2Fdownload%2FComputer-Science%2FA-level%2FPast-Papers%2FOCR%2FPaper-1%2FJune%202024%20QP%20-%20Paper%201%20OCR%20Computer%20Science%20A-level.pdf’,
         },
-        // Only built-in template — OCR H446/01 June 2023 (verified from official mark scheme)
-        yearQuestions: {
-          2023: [
-            { n:1, topic:'Software & Hardware', subtopic:'Application software / Networks / OS types / Interrupts / Memory management',
-              parts:[{l:'a i',marks:1},{l:'a ii',marks:4},{l:'a iii',marks:3},{l:'b',marks:3},{l:'c',marks:2},{l:'d i',marks:3},{l:'d ii',marks:2},{l:'d iii',marks:2},{l:'d iv',marks:3},{l:'e i',marks:1},{l:'e ii',marks:6},{l:'f',marks:3},{l:'g',marks:9}] },
-            { n:2, topic:'Data Structures — Stacks', subtopic:'Stack pseudocode / Trace tables / Stack vs Queue / Arrays vs Lists / Tuples / Linked lists',
-              parts:[{l:'a',marks:5},{l:'b i',marks:3},{l:'b ii',marks:3},{l:'b iii',marks:3},{l:'c i',marks:2},{l:'c ii',marks:2},{l:'c iii',marks:1},{l:'c iv',marks:3}] },
-            { n:3, topic:'Representation of Data', subtopic:'Hex / Binary / Two’s complement / Floating point',
-              parts:[{l:'a i',marks:1},{l:'a ii',marks:1},{l:'b i',marks:1},{l:'b ii',marks:1},{l:'b iii',marks:1},{l:'c',marks:4},{l:'d',marks:3},{l:'e',marks:2}] },
-            { n:4, topic:'Languages, Processors & Security', subtopic:'HLL vs Assembly / Parallel processing / Encryption & Hashing / HTML & CSS / Legislation / SQL',
-              parts:[{l:'a i',marks:4},{l:'b i',marks:1},{l:'b ii',marks:2},{l:'c',marks:9},{l:'d i',marks:5},{l:'d ii',marks:3},{l:'e i',marks:3},{l:'e ii',marks:2},{l:'f i',marks:2},{l:'f ii',marks:2},{l:'f iii',marks:2}] },
-            { n:5, topic:'Programming — File Handling', subtopic:'Reading values / Writing to file / Calling functions',
-              parts:[{l:'a',marks:1},{l:'b',marks:5}] },
-            { n:6, topic:'Boolean Algebra & Logic', subtopic:'Boolean expressions / Truth tables / Karnaugh maps',
-              parts:[{l:'a i',marks:2},{l:'a ii',marks:3},{l:'b',marks:4}] },
-            { n:7, topic:'Legislation & Ethics', subtopic:'RIPA 2000 — surveillance powers, benefits & drawbacks (extended response)',
-              parts:[{l:'',marks:12}] },
-          ],
-        }
       },
       'Paper 2': {
         title: 'Algorithms & Programming (H446/02)',
@@ -1931,7 +1933,6 @@ function saveTemplate(subject, paperKey, year, questions) {
   catch { toast('Could not save template — storage may be full.', 'error'); }
 }
 function getTemplate(subject, paperKey, year) {
-  // Built-in baked template wins (only CS P1 2023 ships pre-loaded)
   const baked = PAPERS[subject]?.papers?.[paperKey]?.yearQuestions?.[year];
   if (baked) return baked;
   return getTemplates()[subject]?.[paperKey]?.[year] || null;
@@ -2147,6 +2148,286 @@ const TOPIC_KEYWORDS = {
     'Practical Skills': ['uncertainty','random error','systematic error','accuracy','precision','calibration','significant figures','percentage uncertainty'],
   },
 };
+
+// ─── TOPIC REVISION RESOURCES ────────────────────────────────────────────────
+// brief: 2-3 sentence revision strategy. resources: [{label, url}]. pmtSearch: PMT topic search URL.
+const TOPIC_RESOURCES = {
+  maths: {
+    'Proof': {
+      brief: 'Proof questions reward clear logical structure. Practice proof by contradiction, proof by exhaustion, and disproof by counter-example. Write each step explicitly — examiners mark the method, not just the answer.',
+      resources: [
+        { label: 'PMT Notes — Proof', url: 'https://pmt.physicsandmathstutor.com/download/Maths/A-level/Pure/Proof/Notes/Proof.pdf' },
+        { label: 'PMT Practice Questions — Proof', url: 'https://www.physicsandmathstutor.com/maths-revision/a-level-maths/proof/' },
+        { label: 'ExamSolutions — Proof', url: 'https://www.examsolutions.net/a-level-maths/ocr/year-1/proof/' },
+      ],
+    },
+    'Algebra & Functions': {
+      brief: 'This is one of the highest-weighting topics across all three papers. Focus on factor theorem, partial fractions, modulus functions, and composite/inverse functions. Sketch transformations carefully — marks are often lost on shape and key points.',
+      resources: [
+        { label: 'PMT Notes — Algebra & Functions', url: 'https://pmt.physicsandmathstutor.com/download/Maths/A-level/Pure/Algebra-and-Functions/Notes/Algebra-and-Functions.pdf' },
+        { label: 'PMT Practice Questions', url: 'https://www.physicsandmathstutor.com/maths-revision/a-level-maths/algebra-and-functions/' },
+        { label: 'Corbettmaths A-Level', url: 'https://corbettmaths.com/2019/04/02/a-level-topic-list/' },
+      ],
+    },
+    'Coordinate Geometry': {
+      brief: 'Coordinate geometry combines algebra with geometry — learn the circle equation, tangent/normal conditions, and parametric curves. Always state the condition you are applying (e.g. "radius is perpendicular to tangent").',
+      resources: [
+        { label: 'PMT Notes — Coordinate Geometry', url: 'https://pmt.physicsandmathstutor.com/download/Maths/A-level/Pure/Coordinate-Geometry/Notes/Coordinate-Geometry.pdf' },
+        { label: 'PMT Past Paper Questions', url: 'https://www.physicsandmathstutor.com/maths-revision/a-level-maths/coordinate-geometry/' },
+      ],
+    },
+    'Sequences & Series': {
+      brief: 'Arithmetic and geometric series are almost guaranteed on Paper 1. Know the sum formulae cold and be confident with sigma notation and recurrence relations. The binomial expansion is worth separate focused practice.',
+      resources: [
+        { label: 'PMT Notes — Sequences', url: 'https://pmt.physicsandmathstutor.com/download/Maths/A-level/Pure/Sequences-and-Series/Notes/Sequences-and-Series.pdf' },
+        { label: 'PMT Questions — Sequences', url: 'https://www.physicsandmathstutor.com/maths-revision/a-level-maths/sequences-and-series/' },
+        { label: 'ExamSolutions — Sequences', url: 'https://www.examsolutions.net/a-level-maths/edexcel/year-1/sequences-and-series/' },
+      ],
+    },
+    'Trigonometry': {
+      brief: 'Trig is often where students lose the most marks. You need CAST diagrams, identities (sin²+cos²=1, tan=sin/cos, and the double-angle forms), and solving equations in a given interval. Practise until rearranging identities feels automatic.',
+      resources: [
+        { label: 'PMT Notes — Trigonometry', url: 'https://pmt.physicsandmathstutor.com/download/Maths/A-level/Pure/Trigonometry/Notes/Trigonometry.pdf' },
+        { label: 'PMT Questions — Trigonometry', url: 'https://www.physicsandmathstutor.com/maths-revision/a-level-maths/trigonometry/' },
+        { label: 'ExamSolutions Trig Playlists', url: 'https://www.examsolutions.net/a-level-maths/edexcel/year-2/trigonometry/' },
+      ],
+    },
+    'Differentiation': {
+      brief: 'Differentiation questions often chain multiple rules. Be confident with the chain, product, and quotient rules, implicit differentiation, and connected rates of change. Sketch the derivative function to check sign changes.',
+      resources: [
+        { label: 'PMT Notes — Differentiation', url: 'https://pmt.physicsandmathstutor.com/download/Maths/A-level/Pure/Differentiation/Notes/Differentiation.pdf' },
+        { label: 'PMT Questions', url: 'https://www.physicsandmathstutor.com/maths-revision/a-level-maths/differentiation/' },
+      ],
+    },
+    'Integration': {
+      brief: 'Integration is both a pure and applied topic — practice standard integrals, integration by parts, substitution, and trapezium rule. Volume of revolution and differential equations (Paper 3) are high-mark areas worth drilling.',
+      resources: [
+        { label: 'PMT Notes — Integration', url: 'https://pmt.physicsandmathstutor.com/download/Maths/A-level/Pure/Integration/Notes/Integration.pdf' },
+        { label: 'PMT Questions', url: 'https://www.physicsandmathstutor.com/maths-revision/a-level-maths/integration/' },
+        { label: 'ExamSolutions — Integration', url: 'https://www.examsolutions.net/a-level-maths/edexcel/year-2/integration/' },
+      ],
+    },
+    'Hypothesis Testing': {
+      brief: 'Follow the four-step structure every time: state hypotheses, calculate test statistic or critical region, compare with significance level, write a conclusion in context. The conclusion must reference the original context to gain full marks.',
+      resources: [
+        { label: 'PMT Notes — Hypothesis Testing', url: 'https://pmt.physicsandmathstutor.com/download/Maths/A-level/Statistics/Hypothesis-Testing/Notes/Hypothesis-Testing.pdf' },
+        { label: 'PMT Questions', url: 'https://www.physicsandmathstutor.com/maths-revision/a-level-maths/hypothesis-testing/' },
+      ],
+    },
+    'Moments': {
+      brief: 'Take moments about a strategically chosen point (e.g. where an unknown acts) to eliminate it from the equation. Draw a clear diagram labelling all forces and distances — setting up the equation is often where marks are lost, not the algebra.',
+      resources: [
+        { label: 'PMT Notes — Moments', url: 'https://pmt.physicsandmathstutor.com/download/Maths/A-level/Mechanics/Moments/Notes/Moments.pdf' },
+        { label: 'PMT Questions — Moments', url: 'https://www.physicsandmathstutor.com/maths-revision/a-level-maths/moments/' },
+        { label: 'ExamSolutions — Moments', url: 'https://www.examsolutions.net/a-level-maths/edexcel/year-2/moments/' },
+      ],
+    },
+    'Forces & Newton\'s Laws': {
+      brief: 'Draw a clear force diagram first. Resolve forces parallel and perpendicular to the surface. F=ma applies in each direction separately. For connected particles, treat them as a system first to find acceleration, then isolate to find tension.',
+      resources: [
+        { label: "PMT Notes — Newton's Laws", url: 'https://pmt.physicsandmathstutor.com/download/Maths/A-level/Mechanics/Forces-and-Newton%27s-Laws/Notes/Forces.pdf' },
+        { label: 'PMT Questions', url: 'https://www.physicsandmathstutor.com/maths-revision/a-level-maths/forces-and-newtons-laws/' },
+      ],
+    },
+    'Kinematics (Mechanics)': {
+      brief: 'Know all five SUVAT equations and when each applies (constant acceleration only). For variable acceleration use integration and differentiation. Always state your positive direction and check units are consistent.',
+      resources: [
+        { label: 'PMT Notes — Kinematics', url: 'https://pmt.physicsandmathstutor.com/download/Maths/A-level/Mechanics/Kinematics/Notes/Kinematics.pdf' },
+        { label: 'PMT Questions', url: 'https://www.physicsandmathstutor.com/maths-revision/a-level-maths/kinematics/' },
+      ],
+    },
+  },
+  physics: {
+    'Motion (Kinematics)': {
+      brief: 'Draw displacement-time and velocity-time graphs for every scenario before writing equations. SUVAT only applies to constant acceleration — if acceleration varies, you need calculus. Gradient of v-t = acceleration, area under v-t = displacement.',
+      resources: [
+        { label: 'PMT Notes — Kinematics', url: 'https://pmt.physicsandmathstutor.com/download/Physics/A-level/Notes/OCR-A/1-Motion/kinematics-notes.pdf' },
+        { label: 'PMT Q&A — Kinematics', url: 'https://www.physicsandmathstutor.com/physics-revision/a-level-physics/motion/' },
+        { label: 'Isaac Physics — Kinematics', url: 'https://isaacphysics.org/topics/kinematics' },
+      ],
+    },
+    'Forces in Action': {
+      brief: 'Resolve forces into components and apply Newton\'s laws in each direction. Free body diagrams are essential — draw one for every problem. Pay attention to equilibrium conditions and the conditions for limiting friction.',
+      resources: [
+        { label: 'PMT Notes — Forces', url: 'https://pmt.physicsandmathstutor.com/download/Physics/A-level/Notes/OCR-A/2-Forces-in-Action/forces-notes.pdf' },
+        { label: 'PMT Q&A — Forces', url: 'https://www.physicsandmathstutor.com/physics-revision/a-level-physics/forces-in-action/' },
+        { label: 'Isaac Physics — Forces', url: 'https://isaacphysics.org/topics/newtons_laws' },
+      ],
+    },
+    'Work, Energy & Power': {
+      brief: 'Use conservation of energy to simplify complex mechanics problems — it avoids solving equations of motion. Know the conditions under which energy is conserved vs dissipated. Efficiency and power questions require careful unit management.',
+      resources: [
+        { label: 'PMT Notes — Work, Energy & Power', url: 'https://pmt.physicsandmathstutor.com/download/Physics/A-level/Notes/OCR-A/3-Work-Energy-Power/work-energy-power-notes.pdf' },
+        { label: 'PMT Q&A', url: 'https://www.physicsandmathstutor.com/physics-revision/a-level-physics/work-energy-power/' },
+        { label: 'Isaac Physics — Energy', url: 'https://isaacphysics.org/topics/energy' },
+      ],
+    },
+    'Waves': {
+      brief: 'Distinguish clearly between transverse and longitudinal waves. Practise drawing superposition diagrams and understanding path difference for stationary waves. Refraction, diffraction and the double-slit formula come up frequently.',
+      resources: [
+        { label: 'PMT Notes — Waves', url: 'https://pmt.physicsandmathstutor.com/download/Physics/A-level/Notes/OCR-A/4-Waves/waves-notes.pdf' },
+        { label: 'PMT Q&A — Waves', url: 'https://www.physicsandmathstutor.com/physics-revision/a-level-physics/waves/' },
+        { label: 'Isaac Physics — Waves', url: 'https://isaacphysics.org/topics/waves' },
+      ],
+    },
+    'Quantum Physics': {
+      brief: 'Focus on the photoelectric effect experiment and what each observation tells us about photon theory. Know how to calculate photon energy, stopping voltage, and work function. De Broglie wavelength questions are also common.',
+      resources: [
+        { label: 'PMT Notes — Quantum Physics', url: 'https://pmt.physicsandmathstutor.com/download/Physics/A-level/Notes/OCR-A/5-Quantum/quantum-notes.pdf' },
+        { label: 'PMT Q&A — Quantum', url: 'https://www.physicsandmathstutor.com/physics-revision/a-level-physics/quantum-physics/' },
+        { label: 'Isaac Physics — Quantum', url: 'https://isaacphysics.org/topics/quantum' },
+      ],
+    },
+    'Electrical Circuits': {
+      brief: 'Kirchhoff\'s laws are the foundation — practice applying both systematically. Internal resistance, potential dividers, and EMF questions are high-frequency exam targets. Draw the circuit diagram, label all values, then apply the laws methodically.',
+      resources: [
+        { label: 'PMT Notes — Electricity', url: 'https://pmt.physicsandmathstutor.com/download/Physics/A-level/Notes/OCR-A/6-Electricity/electricity-notes.pdf' },
+        { label: 'PMT Q&A — Circuits', url: 'https://www.physicsandmathstutor.com/physics-revision/a-level-physics/electric-circuits/' },
+        { label: 'Isaac Physics — Circuits', url: 'https://isaacphysics.org/topics/circuits' },
+      ],
+    },
+    'Practical Skills & Data Analysis': {
+      brief: 'OCR A Papers heavily reward practical understanding. Know how to calculate absolute and percentage uncertainty, identify systematic vs random errors, and draw lines of best fit with worst-fit gradients. A clear methodology earns method marks even if your answer is wrong.',
+      resources: [
+        { label: 'PMT Notes — Practical Skills', url: 'https://pmt.physicsandmathstutor.com/download/Physics/A-level/Notes/OCR-A/0-Practical-Skills/practical-skills-notes.pdf' },
+        { label: 'PMT Q&A — Practical', url: 'https://www.physicsandmathstutor.com/physics-revision/a-level-physics/practical-skills/' },
+        { label: 'Isaac Physics — Uncertainty', url: 'https://isaacphysics.org/topics/measurement' },
+      ],
+    },
+    'Oscillations (SHM)': {
+      brief: 'Know the defining equation a = −ω²x and all its consequences — maximum speed at equilibrium, maximum acceleration at amplitude. Practise the energy-displacement graphs and understand resonance, damping types, and natural frequency.',
+      resources: [
+        { label: 'PMT Notes — SHM', url: 'https://pmt.physicsandmathstutor.com/download/Physics/A-level/Notes/OCR-A/13-Oscillations/oscillations-notes.pdf' },
+        { label: 'PMT Q&A — Oscillations', url: 'https://www.physicsandmathstutor.com/physics-revision/a-level-physics/oscillations/' },
+        { label: 'Isaac Physics — SHM', url: 'https://isaacphysics.org/topics/simple_harmonic_motion' },
+      ],
+    },
+    'Gravitational Fields': {
+      brief: 'Compare gravitational and electric fields systematically — the equations are analogous. Know the difference between uniform and radial fields, gravitational potential, and orbital mechanics (linking period, radius, and mass).',
+      resources: [
+        { label: 'PMT Notes — Gravitational Fields', url: 'https://pmt.physicsandmathstutor.com/download/Physics/A-level/Notes/OCR-A/11-Gravitational-Fields/gravitational-fields-notes.pdf' },
+        { label: 'PMT Q&A', url: 'https://www.physicsandmathstutor.com/physics-revision/a-level-physics/gravitational-fields/' },
+        { label: 'Isaac Physics — Gravity', url: 'https://isaacphysics.org/topics/gravitation' },
+      ],
+    },
+    'Thermal Physics': {
+      brief: 'The ideal gas model and kinetic theory questions need both conceptual understanding and equation fluency. Link macro quantities (P, V, T) to microscopic behaviour. Specific heat capacity and latent heat are straightforward marks if you learn the equations.',
+      resources: [
+        { label: 'PMT Notes — Thermal Physics', url: 'https://pmt.physicsandmathstutor.com/download/Physics/A-level/Notes/OCR-A/10-Thermal-Physics/thermal-physics-notes.pdf' },
+        { label: 'PMT Q&A — Thermal', url: 'https://www.physicsandmathstutor.com/physics-revision/a-level-physics/thermal-physics/' },
+        { label: 'Isaac Physics — Thermal', url: 'https://isaacphysics.org/topics/thermal' },
+      ],
+    },
+    'Capacitors': {
+      brief: 'The three key areas are capacitance formulae, energy stored (½CV²), and charge/discharge (RC time constants). Sketch the exponential graphs from memory and practice reading τ from experimental data.',
+      resources: [
+        { label: 'PMT Notes — Capacitors', url: 'https://pmt.physicsandmathstutor.com/download/Physics/A-level/Notes/OCR-A/14-Capacitors/capacitors-notes.pdf' },
+        { label: 'PMT Q&A — Capacitors', url: 'https://www.physicsandmathstutor.com/physics-revision/a-level-physics/capacitors/' },
+        { label: 'Isaac Physics — Capacitors', url: 'https://isaacphysics.org/topics/capacitors' },
+      ],
+    },
+  },
+  cs: {
+    'CPU Architecture & the Fetch-Decode-Execute Cycle': {
+      brief: 'Understand each register\'s role (PC, MAR, MDR, CIR, ACC) and the precise sequence of micro-operations in the FDE cycle. Performance factors (clock speed, cache size, cores, word length) are common 4–6 mark questions.',
+      resources: [
+        { label: 'PMT Notes — CPU Architecture', url: 'https://pmt.physicsandmathstutor.com/download/Computer-Science/A-level/Notes/OCR/AS-and-A-level-Computer-Science/Unit-1/1.-Characteristics-of-Contemporary-Processors-Input-Output-and-Storage/CPU-Architecture.pdf' },
+        { label: 'PMT Q&A — CPU', url: 'https://www.physicsandmathstutor.com/computer-science-revision/a-level/cpu-architecture/' },
+        { label: 'Craig \'n\' Dave — CPU Architecture (YouTube)', url: 'https://www.youtube.com/watch?v=Z5JC9Ve1sfI' },
+      ],
+    },
+    'Memory & Storage': {
+      brief: 'Compare RAM vs ROM, primary vs secondary storage, and different storage technologies (optical, magnetic, SSD). Cache memory (levels, locality of reference) is often tested with the FDE cycle.',
+      resources: [
+        { label: 'PMT Notes — Memory', url: 'https://pmt.physicsandmathstutor.com/download/Computer-Science/A-level/Notes/OCR/AS-and-A-level-Computer-Science/Unit-1/1.-Characteristics-of-Contemporary-Processors-Input-Output-and-Storage/Memory.pdf' },
+        { label: 'PMT Q&A — Memory & Storage', url: 'https://www.physicsandmathstutor.com/computer-science-revision/a-level/memory-and-storage/' },
+        { label: 'Craig \'n\' Dave — Storage (YouTube)', url: 'https://www.youtube.com/watch?v=pO7R-JBqhMo' },
+      ],
+    },
+    'Operating Systems': {
+      brief: 'Focus on the four key OS functions: process management, memory management, device management, and file management. Understand different OS types (distributed, embedded, real-time) and why interrupts are critical to multitasking.',
+      resources: [
+        { label: 'PMT Notes — Operating Systems', url: 'https://pmt.physicsandmathstutor.com/download/Computer-Science/A-level/Notes/OCR/AS-and-A-level-Computer-Science/Unit-1/2.-Software-and-Software-Development/Operating-Systems.pdf' },
+        { label: 'PMT Q&A — Operating Systems', url: 'https://www.physicsandmathstutor.com/computer-science-revision/a-level/operating-systems/' },
+        { label: 'Craig \'n\' Dave — OS (YouTube)', url: 'https://www.youtube.com/watch?v=pEJiGC-ObQE' },
+      ],
+    },
+    'Networks & Communication Protocols': {
+      brief: 'Know the OSI/TCP-IP model layers and what happens at each. Understand routing (packet vs circuit switching), the difference between protocols (TCP vs UDP), and network hardware (switches, routers, DNS). Client-server vs peer-to-peer is a common comparison.',
+      resources: [
+        { label: 'PMT Notes — Networks', url: 'https://pmt.physicsandmathstutor.com/download/Computer-Science/A-level/Notes/OCR/AS-and-A-level-Computer-Science/Unit-1/3.-Exchanging-Data/Networks.pdf' },
+        { label: 'PMT Q&A — Networks', url: 'https://www.physicsandmathstutor.com/computer-science-revision/a-level/networks/' },
+        { label: 'Craig \'n\' Dave — Networking (YouTube)', url: 'https://www.youtube.com/watch?v=gHXFi1s2GQA' },
+      ],
+    },
+    'Representation of Data': {
+      brief: 'Practise binary↔hex↔denary conversion until it\'s fast. Two\'s complement, floating-point representation (mantissa/exponent), and character encoding (ASCII, Unicode) all appear regularly. Know the trade-offs: more bits = more precision / larger range.',
+      resources: [
+        { label: 'PMT Notes — Data Representation', url: 'https://pmt.physicsandmathstutor.com/download/Computer-Science/A-level/Notes/OCR/AS-and-A-level-Computer-Science/Unit-1/4.-Data-Types-Structures-and-Algorithms/Number-Systems.pdf' },
+        { label: 'PMT Q&A — Data Representation', url: 'https://www.physicsandmathstutor.com/computer-science-revision/a-level/data-representation/' },
+        { label: 'Craig \'n\' Dave — Binary (YouTube)', url: 'https://www.youtube.com/watch?v=jc8BgSP3MeA' },
+      ],
+    },
+    'Data Structures': {
+      brief: 'Be comfortable implementing stacks, queues, linked lists, trees, and hash tables in pseudocode. Know the Big-O complexity for common operations and when to choose one structure over another.',
+      resources: [
+        { label: 'PMT Notes — Data Structures', url: 'https://pmt.physicsandmathstutor.com/download/Computer-Science/A-level/Notes/OCR/AS-and-A-level-Computer-Science/Unit-1/4.-Data-Types-Structures-and-Algorithms/Data-Structures.pdf' },
+        { label: 'PMT Q&A — Data Structures', url: 'https://www.physicsandmathstutor.com/computer-science-revision/a-level/data-structures/' },
+        { label: 'Craig \'n\' Dave — Data Structures (YouTube)', url: 'https://www.youtube.com/watch?v=p65AHm9MX80' },
+      ],
+    },
+    'Algorithms': {
+      brief: 'Trace through algorithms step-by-step in the exam — don\'t try to shortcut it. Know the key algorithms: bubble, merge, quick, insertion sort; binary vs linear search; Dijkstra\'s. Be able to state the time complexity of each and explain why.',
+      resources: [
+        { label: 'PMT Notes — Algorithms', url: 'https://pmt.physicsandmathstutor.com/download/Computer-Science/A-level/Notes/OCR/AS-and-A-level-Computer-Science/Unit-2/Algorithms.pdf' },
+        { label: 'PMT Q&A — Algorithms', url: 'https://www.physicsandmathstutor.com/computer-science-revision/a-level/algorithms/' },
+        { label: 'VisuAlgo — Algorithm Animations', url: 'https://visualgo.net/en' },
+      ],
+    },
+    'Programming Concepts': {
+      brief: 'OCR A Paper 2 tests programming heavily. Review OOP (classes, inheritance, encapsulation, polymorphism), recursion base cases, and file I/O. Trace recursive functions carefully — draw the call stack if needed.',
+      resources: [
+        { label: 'PMT Notes — Programming', url: 'https://pmt.physicsandmathstutor.com/download/Computer-Science/A-level/Notes/OCR/AS-and-A-level-Computer-Science/Unit-2/Programming-Concepts.pdf' },
+        { label: 'PMT Q&A — Programming', url: 'https://www.physicsandmathstutor.com/computer-science-revision/a-level/programming-concepts/' },
+        { label: 'Craig \'n\' Dave — OOP (YouTube)', url: 'https://www.youtube.com/watch?v=lbXsrHGhBAU' },
+      ],
+    },
+    'Boolean Algebra & Logic Gates': {
+      brief: 'Practice simplifying Boolean expressions using De Morgan\'s laws and Karnaugh maps. Draw logic gate diagrams from expressions and vice versa. Half-adder and full-adder circuits appear regularly alongside flip-flops.',
+      resources: [
+        { label: 'PMT Notes — Boolean Algebra', url: 'https://pmt.physicsandmathstutor.com/download/Computer-Science/A-level/Notes/OCR/AS-and-A-level-Computer-Science/Unit-1/5.-Legal-Moral-Cultural-and-Ethical-Issues/Boolean-Algebra.pdf' },
+        { label: 'PMT Q&A — Boolean Logic', url: 'https://www.physicsandmathstutor.com/computer-science-revision/a-level/boolean-algebra/' },
+        { label: 'Nand2Tetris (free course)', url: 'https://www.nand2tetris.org/' },
+      ],
+    },
+    'Databases & SQL': {
+      brief: 'Know how to normalise to 3NF (remove repeating groups → 1NF; remove partial dependencies → 2NF; remove transitive dependencies → 3NF). Write SELECT queries with JOIN, WHERE, GROUP BY, and aggregate functions. Entity-relationship diagrams are almost always tested.',
+      resources: [
+        { label: 'PMT Notes — Databases', url: 'https://pmt.physicsandmathstutor.com/download/Computer-Science/A-level/Notes/OCR/AS-and-A-level-Computer-Science/Unit-1/3.-Exchanging-Data/Databases.pdf' },
+        { label: 'PMT Q&A — SQL', url: 'https://www.physicsandmathstutor.com/computer-science-revision/a-level/databases/' },
+        { label: 'W3Schools SQL Tutorial', url: 'https://www.w3schools.com/sql/' },
+      ],
+    },
+    'System Software & Software Development': {
+      brief: 'Know the software development lifecycle models (waterfall, agile, spiral) and their trade-offs. Understand assemblers, compilers, interpreters, and linkers/loaders. Testing types (black-box, white-box, integration) are tested with short justify-your-choice questions.',
+      resources: [
+        { label: 'PMT Notes — Software Development', url: 'https://pmt.physicsandmathstutor.com/download/Computer-Science/A-level/Notes/OCR/AS-and-A-level-Computer-Science/Unit-1/2.-Software-and-Software-Development/Software-Development.pdf' },
+        { label: 'PMT Q&A — Software Development', url: 'https://www.physicsandmathstutor.com/computer-science-revision/a-level/software-development/' },
+        { label: 'Craig \'n\' Dave — Languages (YouTube)', url: 'https://www.youtube.com/watch?v=vfVZ_vHlsOY' },
+      ],
+    },
+  },
+};
+
+function getTopicResources(subject, topicName) {
+  // Exact match first, then case-insensitive, then partial match
+  const subMap = TOPIC_RESOURCES[subject] || {};
+  if (subMap[topicName]) return subMap[topicName];
+  const lower = topicName.toLowerCase();
+  const key = Object.keys(subMap).find(k => k.toLowerCase() === lower)
+    || Object.keys(subMap).find(k => k.toLowerCase().includes(lower) || lower.includes(k.toLowerCase()));
+  return key ? subMap[key] : null;
+}
 
 const _STOPWORDS = new Set(['the','a','an','of','to','in','on','at','for','and','or','but','is','are','was','were','be','been','being','this','that','these','those','it','its','as','by','from','with','about','into','out','up','down','over','under','use','used','using','can','will','would','could','should','may','might','must','have','has','had','do','does','did','done','one','two','three','four','five','six','seven','eight','nine','ten','some','any','all','no','not','only','also','then','than','if','so','what','which','who','when','where','why','how','their','there','here','his','her','him','she','he','they','them','we','us','you','your','our','my','me','i','give','show','state','describe','explain','identify','name','write','complete','section','question','figure','fig','page','blank','please','note','answer','below','above','following','shown','part','parts','marks','total','total','space','line','code','program','programs','example','examples','rules','rule','table','data','value','values','set']);
 
@@ -2417,7 +2698,7 @@ function loadPaper() {
     document.documentElement.style.setProperty('--current-dim', _loadCat.color + '1f');
   } else setAccent('m');
 
-  // Look up template: built-in (CS P1 2023) > user-saved > none -> builder
+  // Look up template: user-saved > none -> builder
   const tpl = getTemplate(sub, pk, currentYear);
   const paperBase = getSubjectPapers(sub)[pk] || {};
   document.getElementById('log-step1b').style.display = 'none';
@@ -2428,10 +2709,8 @@ function loadPaper() {
     document.getElementById('log-step2').style.display = 'block';
     document.getElementById('log-step2').scrollIntoView({behavior:'smooth', block:'start'});
     fetchBoundaries();
-    // Only show edit/delete for user-saved templates (not built-in baked ones)
-    const isBaked = !!PAPERS[sub]?.papers?.[pk]?.yearQuestions?.[currentYear];
-    document.getElementById('btn-edit-template').style.display = isBaked ? 'none' : '';
-    document.getElementById('btn-delete-template').style.display = isBaked ? 'none' : '';
+    document.getElementById('btn-edit-template').style.display = '';
+    document.getElementById('btn-delete-template').style.display = '';
   } else {
     document.getElementById('btn-edit-template').style.display = 'none';
     document.getElementById('btn-delete-template').style.display = 'none';
@@ -3830,8 +4109,65 @@ function closeModal() {
 document.getElementById('review-modal').addEventListener('click', e => {
   if (e.target === document.getElementById('review-modal')) closeModal();
 });
+
+function openRevisionPlan(subject, topicName, pct) {
+  const res = getTopicResources(subject, topicName);
+  const subCat = SUBJECT_CATALOG[subject] || PAPERS[subject];
+  const subName = subCat?.name || subject;
+  const subColor = subCat?.color || '#888';
+
+  const grade = _pctToGrade(pct);
+  const gradeColors = { 'A*':'#22c55e','A':'#86efac','B':'#fbbf24','C':'#f97316','D':'#ef4444','E':'#dc2626','U':'#991b1b' };
+  const gc = gradeColors[grade] || '#888';
+
+  let html = `
+    <div style="display:flex;gap:12px;align-items:center;margin-bottom:18px;flex-wrap:wrap">
+      <span style="font-family:var(--mono);font-size:11px;padding:3px 10px;border-radius:20px;background:color-mix(in srgb,${subColor} 15%,transparent);color:${subColor}">${_esc(subName)}</span>
+      <span style="font-family:var(--mono);font-size:11px;color:var(--text3)">Current avg: <b style="color:${gc}">${pct}% (${grade})</b></span>
+    </div>`;
+
+  if (res?.brief) {
+    html += `<div class="rp-modal-brief">${_esc(res.brief)}</div>`;
+  } else {
+    html += `<p style="color:var(--text3);font-size:13px;margin-bottom:18px">No specific guide available yet for this topic — use the links below to find resources.</p>`;
+  }
+
+  if (res?.resources?.length) {
+    html += `<div style="font-size:11px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Resources</div>
+    <ul class="rp-modal-resources">`;
+    res.resources.forEach(r => {
+      html += `<li>→ <a href="${r.url}" target="_blank" rel="noopener">${_esc(r.label)}</a></li>`;
+    });
+    html += `</ul>`;
+  }
+
+  // PMT past paper question search
+  const pmtPaper = subCat?.papers ? Object.values(subCat.papers)[0] : null;
+  const pmtBase = pmtPaper?.pmtPath;
+  if (pmtBase) {
+    const pmtSearch = `https://www.physicsandmathstutor.com/${pmtBase}`;
+    html += `<div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border)">
+      <a href="${pmtSearch}" target="_blank" rel="noopener" style="font-size:13px;color:var(--accent)">
+        → Browse past paper questions on PMT
+      </a>
+    </div>`;
+  }
+
+  document.getElementById('rp-title').textContent = topicName;
+  document.getElementById('rp-content').innerHTML = html;
+  document.getElementById('revision-plan-modal').classList.add('open');
+}
+
+function closeRevisionModal() {
+  document.getElementById('revision-plan-modal').classList.remove('open');
+}
+document.getElementById('revision-plan-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('revision-plan-modal')) closeRevisionModal();
+});
+
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
+  if (document.getElementById('revision-plan-modal').classList.contains('open')) { closeRevisionModal(); return; }
   if (document.getElementById('review-modal').classList.contains('open')) { closeModal(); return; }
   if (document.getElementById('login-overlay').classList.contains('open')) { dismissLoginOverlay(); return; }
   if (document.getElementById('onboarding').classList.contains('open')) return; // onboarding must be completed
@@ -4016,7 +4352,7 @@ function renderAnalytics() {
       const steps = Math.max(2, Math.round((100 - t.pct) / 20));
       const estMins = Math.round((100 - t.pct) / 10) * 15;
       html += `
-        <div class="revision-plan-card">
+        <div class="revision-plan-card" onclick="openRevisionPlan('${t.subject}','${_esc(t.topic).replace(/'/g,"\\'")}',${t.pct})">
           <div class="revision-plan-num">0${i+1}</div>
           <div class="revision-plan-topic">${_esc(t.topic)}</div>
           <div class="revision-plan-meta">
