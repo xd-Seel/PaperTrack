@@ -591,8 +591,17 @@
   .bar-bad { background: var(--red); }
 
   /* ── PROGRESSION CHART ── */
-  .prog-chart { position: relative; height: 180px; }
+  .prog-chart { position: relative; }
+  .prog-chart canvas { width: 100% !important; display: block; }
   canvas.chart { width: 100%; height: 100%; }
+  .chart-legend { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .chart-legend-chip {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    display: flex;
+    align-items: center;
+  }
 
   /* ── NEW DASHBOARD ── */
   .dash-header-row {
@@ -670,6 +679,43 @@
     color: var(--text3);
     line-height: 1.4;
   }
+
+  /* Streak dots */
+  .streak-dots-row { display: flex; gap: 4px; flex-wrap: wrap; }
+  .streak-dot {
+    width: 11px; height: 11px;
+    border-radius: 3px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .streak-dot-on { background: var(--orange); border-color: var(--orange); }
+  .streak-dot-today { outline: 2px solid var(--orange); outline-offset: 1px; }
+
+  /* Grade mini chips (per-subject in projected grade card) */
+  .grade-mini-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .grade-mini-chip {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+  }
+
+  /* Papers mini breakdown */
+  .papers-mini-grid { display: flex; flex-direction: column; gap: 4px; }
+  .papers-mini-row {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+  }
+  .papers-mini-count { font-weight: 500; }
 
   /* Today's Pick */
   .todays-pick-card {
@@ -815,6 +861,50 @@
     font-size: 20px;
     color: var(--text);
     letter-spacing: -0.2px;
+  }
+
+  /* Paper-type averages */
+  .paper-avg-subject { padding: 14px 0; border-bottom: 1px solid var(--border); }
+  .paper-avg-subject:last-child { border-bottom: none; padding-bottom: 0; }
+  .paper-avg-subject:first-child { padding-top: 0; }
+  .paper-avg-subj-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 12px;
+  }
+  .paper-avg-cells { display: flex; gap: 12px; flex-wrap: wrap; }
+  .paper-avg-cell {
+    flex: 1;
+    min-width: 100px;
+    max-width: 180px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+  }
+  .paper-avg-key {
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 4px;
+  }
+  .paper-avg-pct {
+    font-family: var(--serif);
+    font-size: 28px;
+    line-height: 1;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+  .paper-avg-grade {
+    font-family: var(--mono);
+    font-size: 11px;
+    margin-bottom: 2px;
   }
 
   /* ── TOAST ── */
@@ -3220,33 +3310,74 @@ function renderDashboard() {
   const projGrade = rollingAvg !== null ? _pctToGrade(rollingAvg) : null;
   const totalPapers = db.records.length;
   const subjects = getSelectedSubjects();
-  // Timespan in months
   const sortedDates = db.records.map(r => new Date(r.date)).sort((a,b) => a-b);
   const monthSpan = sortedDates.length > 1
     ? Math.max(1, Math.round((sortedDates[sortedDates.length-1] - sortedDates[0]) / (1000*60*60*24*30)))
     : 1;
 
-  const streakMsg = streak >= 7 ? 'Strong week.' : streak >= 3 ? 'Solid rhythm.' : streak >= 1 ? 'Keep it going.' : 'Start your streak today.';
-  const gradeMsg = rollingAvg !== null
-    ? `${rollingAvg}% rolling avg.`
-    : 'Log papers to see your grade.';
-  const papersMsg = `${subjects.length} subject${subjects.length!==1?'s':''} · ${monthSpan} month${monthSpan!==1?'s':''}`;
+  const streakMsg = streak >= 14 ? 'Two-week streak.' : streak >= 7 ? 'Strong week.' : streak >= 3 ? 'Solid rhythm.' : streak >= 1 ? 'Keep it going.' : 'Start your streak today.';
+  const gradeMsg = rollingAvg !== null ? `${rollingAvg}% rolling avg. across last 10 papers.` : 'Log more papers to see your grade.';
+
+  // Streak mini-calendar: last 14 days
+  const dateSet = new Set(db.records.map(r => (r.date || '').split('T')[0]).filter(Boolean));
+  let streakDots = '';
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const key = d.toISOString().split('T')[0];
+    const active = dateSet.has(key);
+    const isToday = i === 0;
+    streakDots += `<span class="streak-dot${active?' streak-dot-on':''}${isToday?' streak-dot-today':''}"></span>`;
+  }
+
+  // Per-subject grade breakdown
+  let gradeBreakdown = '';
+  subjects.forEach(sub => {
+    const recs = db.records.filter(r => r.subject === sub);
+    if (recs.length === 0) return;
+    const cat = SUBJECT_CATALOG[sub] || PAPERS[sub];
+    const color = cat?.color || '#888';
+    const name = (cat?.name || sub).split(' ')[0]; // first word only for brevity
+    const avg = Math.round(recs.reduce((s,r) => s + (r.totalAvail>0 ? r.totalScored/r.totalAvail*100 : 0),0)/recs.length);
+    const g = _pctToGrade(avg);
+    gradeBreakdown += `<span class="grade-mini-chip" style="border-color:${color}33">
+      <span style="color:${color};font-weight:600">${_esc(name)}</span>
+      <span style="color:${color}">${g}</span>
+    </span>`;
+  });
+
+  // Papers logged per subject
+  let papersBySubj = '';
+  subjects.forEach(sub => {
+    const n = db.records.filter(r => r.subject === sub).length;
+    if (n === 0) return;
+    const cat = SUBJECT_CATALOG[sub] || PAPERS[sub];
+    const color = cat?.color || '#888';
+    const name = (cat?.name || sub).split(' ')[0];
+    papersBySubj += `<span class="papers-mini-row"><span style="color:${color}">${_esc(name)}</span><span class="papers-mini-count" style="color:${color}">${n}</span></span>`;
+  });
+  const mocksCountdown = getMockCountdown();
+  const paperTarget = mocksCountdown !== null && mocksCountdown > 0
+    ? `Target: ${totalPapers + Math.max(0, Math.ceil(mocksCountdown / 3))} by mocks. ${Math.max(0, Math.ceil(mocksCountdown / 3))} to go.`
+    : `${subjects.filter(s => db.records.some(r => r.subject===s)).length} subject${subjects.length!==1?'s':''} · ${monthSpan} month${monthSpan!==1?'s':''}`;
 
   html += `<div class="stat-cards-row">
     <div class="stat-card">
       <div class="stat-card-eyebrow">Streak</div>
       <div class="stat-card-big" style="color:var(--orange)">${streak}<span class="stat-card-unit"> day${streak!==1?'s':''}</span></div>
-      <div class="stat-card-label">${streakMsg}</div>
+      <div class="stat-card-label" style="margin-bottom:12px">${streakMsg}</div>
+      <div class="streak-dots-row">${streakDots}</div>
     </div>
     <div class="stat-card">
       <div class="stat-card-eyebrow">Projected Grade</div>
       <div class="stat-card-big" style="color:var(--accent-m)">${projGrade || '—'}</div>
-      <div class="stat-card-label">${gradeMsg}</div>
+      <div class="stat-card-label" style="margin-bottom:10px">${gradeMsg}</div>
+      <div class="grade-mini-row">${gradeBreakdown}</div>
     </div>
     <div class="stat-card">
       <div class="stat-card-eyebrow">Papers Logged</div>
       <div class="stat-card-big" style="color:var(--text)">${totalPapers}</div>
-      <div class="stat-card-label">${papersMsg}</div>
+      <div class="stat-card-label" style="margin-bottom:10px">${paperTarget}</div>
+      <div class="papers-mini-grid">${papersBySubj}</div>
     </div>
   </div>`;
 
@@ -3595,6 +3726,53 @@ function renderAnalytics() {
   }
   html += `</div>`;
 
+  // ── Paper-type averages ───────────────────────────────
+  {
+    // Gather all distinct paper keys across active subjects
+    const paperAveragesHtml = activeSubjects.map(sub => {
+      const subRecs = db.records.filter(r => r.subject === sub);
+      if (subRecs.length === 0) return '';
+      const cat = SUBJECT_CATALOG[sub] || PAPERS[sub];
+      const color = cat?.color || '#888';
+      const subName = cat?.name || sub;
+      // Group by paperKey, sorted
+      const byPaper = {};
+      subRecs.forEach(r => {
+        if (!byPaper[r.paperKey]) byPaper[r.paperKey] = [];
+        byPaper[r.paperKey].push(r);
+      });
+      const sortedKeys = Object.keys(byPaper).sort();
+      const cells = sortedKeys.map(pk => {
+        const recs = byPaper[pk];
+        const avg = Math.round(recs.reduce((s,r) => s + (r.totalAvail>0 ? r.totalScored/r.totalAvail*100 : 0),0)/recs.length);
+        const g = _pctToGrade(avg);
+        const barClass = avg >= 70 ? 'bar-good' : avg >= 40 ? 'bar-mid' : 'bar-bad';
+        const shortKey = pk.replace('Paper ','P');
+        return `<div class="paper-avg-cell">
+          <div class="paper-avg-key" style="color:${color}">${_esc(shortKey)}</div>
+          <div class="paper-avg-pct">${avg}%</div>
+          <div class="paper-avg-grade" style="color:${color}">${g}</div>
+          <div class="topic-bar-track" style="margin-top:6px"><div class="topic-bar-fill ${barClass}" style="width:${avg}%"></div></div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:4px">${recs.length} paper${recs.length!==1?'s':''}</div>
+        </div>`;
+      }).join('');
+      return `<div class="paper-avg-subject">
+        <div class="paper-avg-subj-name" style="color:${color}">
+          <span class="subject-dot" style="background:${color}"></span>${_esc(subName)}
+        </div>
+        <div class="paper-avg-cells">${cells}</div>
+      </div>`;
+    }).filter(Boolean).join('');
+
+    if (paperAveragesHtml) {
+      html += `
+        <div class="section-header-row" style="margin-top:4px">
+          <div class="section-title">Averages by paper</div>
+        </div>
+        <div class="card" style="margin-bottom:24px">${paperAveragesHtml}</div>`;
+    }
+  }
+
   // ── Revision plan ─────────────────────────────────────
   const planTopics = topics.filter(t => t.total >= 4).slice(0, 3);
   if (planTopics.length > 0) {
@@ -3669,108 +3847,163 @@ function renderAnalytics() {
 
   // ── Score trend ───────────────────────────────────────
   html += `<div class="section-header-row" style="margin-top:32px"><div class="section-title">Score trend over time</div></div>`;
-  html += `<div class="analytics-grid">`;
   const chartSubjects = _analyticsSubjectFilter === 'all' ? allSubjects : [_analyticsSubjectFilter];
   chartSubjects.forEach(sub => {
-    const recs = db.records.filter(r => r.subject===sub).sort((a,b) => a.year-b.year || a.paperKey.localeCompare(b.paperKey));
+    const recs = db.records.filter(r => r.subject===sub);
     if (recs.length < 2) return;
     const cat = SUBJECT_CATALOG[sub] || PAPERS[sub];
     const subName = cat?.name || sub;
-    html += `<div class="card"><div class="card-title">${_esc(subName)} — Score Trend</div>
-      <div class="prog-chart"><canvas id="chart-${sub}" width="400" height="180"></canvas></div>
+    const paperKeys = [...new Set(recs.map(r => r.paperKey))].sort();
+    // Legend chips
+    const legendHtml = paperKeys.map((pk, i) => {
+      const c = _paperLineColor(cat?.color || '#f5c542', i, paperKeys.length);
+      return `<span class="chart-legend-chip"><span style="display:inline-block;width:20px;height:2px;background:${c};vertical-align:middle;border-radius:2px;margin-right:4px"></span>${_esc(pk.replace('Paper ','P'))}</span>`;
+    }).join('');
+    html += `<div class="card" style="margin-bottom:14px">
+      <div class="card-title-row">
+        <span class="card-title">${_esc(subName)}</span>
+        <div class="chart-legend">${legendHtml}</div>
+      </div>
+      <div class="prog-chart" style="height:200px"><canvas id="chart-${sub}"></canvas></div>
     </div>`;
   });
-  html += `</div>`;
 
   el.innerHTML = html;
 
   // Draw canvases
   chartSubjects.forEach(sub => {
-    const recs = db.records.filter(r => r.subject===sub).sort((a,b) => a.year-b.year || a.paperKey.localeCompare(b.paperKey));
+    const recs = db.records.filter(r => r.subject===sub);
     if (recs.length < 2) return;
     const canvas = document.getElementById('chart-' + sub);
     if (!canvas) return;
-    drawLineChart(canvas, recs, sub);
+    const cat = SUBJECT_CATALOG[sub] || PAPERS[sub];
+    drawLineChartMulti(canvas, recs, cat?.color || '#f5c542');
   });
 }
 
+function _paperLineColor(baseColor, idx, total) {
+  // Generate visually distinct but cohesive palette from the subject's base colour.
+  // idx 0 = base colour, others shift hue slightly and vary lightness.
+  if (total === 1) return baseColor;
+  const offsets = [0, 40, -40, 70, -70];
+  const alphas  = [1, 0.75, 0.55, 0.9, 0.65];
+  // Simple approach: shift the hex colour by mixing with white/different hue
+  const palette = {
+    '#f5c542': ['#f5c542','#e8965a','#d4e87a'],   // maths — gold, amber, lime
+    '#4fc3f7': ['#4fc3f7','#8b7ff5','#5af5d4'],   // physics — blue, purple, teal
+    '#a8e6a3': ['#a8e6a3','#82cfdf','#c8a8e6'],   // cs — green, cyan, lavender
+  };
+  if (palette[baseColor] && palette[baseColor][idx]) return palette[baseColor][idx];
+  // Fallback: vary opacity
+  const hex = baseColor;
+  const opac = Math.round(255 * (alphas[idx % alphas.length] || 0.7)).toString(16).padStart(2,'0');
+  return hex + opac;
+}
+
 function drawLineChart(canvas, recs, sub) {
+  // Legacy wrapper kept for any other callers
+  const cat = SUBJECT_CATALOG[sub] || PAPERS[sub];
+  drawLineChartMulti(canvas, recs, cat?.color || '#f5c542');
+}
+
+function drawLineChartMulti(canvas, recs, baseColor) {
   const ctx = canvas.getContext('2d');
-  const W = canvas.offsetWidth || 380;
-  const H = 160;
+  const W = canvas.offsetWidth || 560;
+  const H = 200;
   canvas.width = W;
   canvas.height = H;
 
-  const accentColors = { maths:'#f5c542', physics:'#4fc3f7', cs:'#a8e6a3' };
-  const color = accentColors[sub] || '#f5c542';
+  // Group by paperKey, sorted
+  const paperKeys = [...new Set(recs.map(r => r.paperKey))].sort();
+  // Collect all years that appear across any paper, sorted
+  const allYears = [...new Set(recs.map(r => r.year))].sort((a,b) => a-b);
 
-  const pts = recs.map(r => r.totalAvail > 0 ? Math.round(r.totalScored/r.totalAvail*100) : 0);
-  const labels = recs.map(r => `${r.year} ${r.paperKey.replace('Paper ','P')}`);
-  const pad = { l:30, r:10, t:10, b:35 };
+  const pad = { l: 34, r: 16, t: 12, b: 38 };
   const cW = W - pad.l - pad.r;
   const cH = H - pad.t - pad.b;
 
-  ctx.clearRect(0,0,W,H);
+  ctx.clearRect(0, 0, W, H);
 
-  // Grid lines
-  [0,25,50,75,100].forEach(v => {
-    const y = pad.t + cH - (v/100)*cH;
+  // Grid lines + y-axis labels
+  [0, 25, 50, 75, 100].forEach(v => {
+    const y = pad.t + cH - (v / 100) * cH;
     ctx.strokeStyle = '#2a2d38';
     ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W-pad.r, y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
     ctx.fillStyle = '#5a5e74';
     ctx.font = '10px DM Mono, monospace';
     ctx.textAlign = 'right';
-    ctx.fillText(v+'%', pad.l-4, y+3);
+    ctx.fillText(v + '%', pad.l - 5, y + 3);
   });
 
-  if (pts.length === 0) return;
-  const xStep = pts.length > 1 ? cW / (pts.length-1) : cW;
+  if (allYears.length === 0) return;
 
-  // Area fill
-  const grad = ctx.createLinearGradient(0, pad.t, 0, pad.t+cH);
-  grad.addColorStop(0, color+'50');
-  grad.addColorStop(1, color+'00');
-  ctx.beginPath();
-  pts.forEach((p,i) => {
-    const x = pad.l + (pts.length>1 ? i*xStep : cW/2);
-    const y = pad.t + cH - (p/100)*cH;
-    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
-  });
-  ctx.lineTo(pad.l + (pts.length>1 ? (pts.length-1)*xStep : cW/2), pad.t+cH);
-  ctx.lineTo(pad.l, pad.t+cH);
-  ctx.closePath();
-  ctx.fillStyle = grad;
-  ctx.fill();
+  // x positions: evenly space all years
+  const xForYear = year => {
+    const idx = allYears.indexOf(year);
+    return pad.l + (allYears.length > 1 ? (idx / (allYears.length - 1)) * cW : cW / 2);
+  };
 
-  // Line
-  ctx.beginPath();
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 2;
-  pts.forEach((p,i) => {
-    const x = pad.l + (pts.length>1 ? i*xStep : cW/2);
-    const y = pad.t + cH - (p/100)*cH;
-    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
-  });
-  ctx.stroke();
+  // Draw each paper key as a separate series
+  paperKeys.forEach((pk, pkIdx) => {
+    const color = _paperLineColor(baseColor, pkIdx, paperKeys.length);
+    const seriesRecs = recs.filter(r => r.paperKey === pk).sort((a,b) => a.year - b.year);
+    if (seriesRecs.length === 0) return;
 
-  // Dots + labels
-  pts.forEach((p,i) => {
-    const x = pad.l + (pts.length>1 ? i*xStep : cW/2);
-    const y = pad.t + cH - (p/100)*cH;
+    const pts = seriesRecs.map(r => ({
+      x: xForYear(r.year),
+      y: pad.t + cH - (r.totalAvail > 0 ? r.totalScored / r.totalAvail : 0) * cH,
+      pct: r.totalAvail > 0 ? Math.round(r.totalScored / r.totalAvail * 100) : 0,
+      year: r.year,
+    }));
+
+    // Area fill under this series
+    if (pts.length > 1) {
+      const grad = ctx.createLinearGradient(0, pad.t, 0, pad.t + cH);
+      grad.addColorStop(0, color + '28');
+      grad.addColorStop(1, color + '00');
+      ctx.beginPath();
+      pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+      ctx.lineTo(pts[pts.length - 1].x, pad.t + cH);
+      ctx.lineTo(pts[0].x, pad.t + cH);
+      ctx.closePath();
+      ctx.fillStyle = grad;
+      ctx.fill();
+    }
+
+    // Line
     ctx.beginPath();
-    ctx.arc(x,y,4,0,Math.PI*2);
-    ctx.fillStyle = color;
-    ctx.fill();
-    ctx.strokeStyle = '#0d0e11';
+    ctx.strokeStyle = color;
     ctx.lineWidth = 2;
+    ctx.lineJoin = 'round';
+    pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
     ctx.stroke();
 
-    // x-axis label
-    ctx.fillStyle = '#8b8fa8';
+    // Dots + score labels above dot
+    pts.forEach(p => {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.strokeStyle = '#0d0e11';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Score above dot
+      ctx.fillStyle = color;
+      ctx.font = '9px DM Mono, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(p.pct + '%', p.x, p.y - 8);
+    });
+  });
+
+  // X-axis year labels
+  allYears.forEach(yr => {
+    const x = xForYear(yr);
+    ctx.fillStyle = '#5a5e74';
     ctx.font = '9px DM Mono, monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(labels[i], x, H-8);
+    ctx.fillText(String(yr), x, H - 6);
   });
 }
 
