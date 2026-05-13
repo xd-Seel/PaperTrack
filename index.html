@@ -678,15 +678,16 @@
   }
   .stat-card-eyebrow {
     font-family: var(--mono);
-    font-size: 9px;
-    letter-spacing: 0.14em;
+    font-size: 11px;
+    letter-spacing: 0.10em;
     text-transform: uppercase;
     color: var(--text3);
     margin-bottom: 8px;
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 6px;
   }
+  .stat-card-eyebrow svg { flex-shrink: 0; opacity: 0.7; }
   .stat-card-big {
     font-family: var(--serif);
     font-size: 56px;
@@ -726,29 +727,36 @@
   }
 
   /* Streak dots */
-  .streak-dots-row { display: flex; gap: 3px; flex-wrap: nowrap; margin-top: 2px; }
+  .streak-dots-row { display: flex; gap: 6px; flex-wrap: nowrap; margin-top: 8px; }
   .streak-dot {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2px;
-    flex-shrink: 0;
+    gap: 4px;
+    flex: 1;
   }
   .streak-dot-letter {
     font-family: var(--mono);
-    font-size: 7px;
+    font-size: 8px;
     color: var(--text3);
     text-transform: uppercase;
     line-height: 1;
+    letter-spacing: -0.02em;
   }
   .streak-dot-circle {
-    width: 13px; height: 13px;
+    width: 28px; height: 28px;
     border-radius: 50%;
     background: var(--surface2);
     border: 1px solid var(--border);
+    transition: background .15s;
   }
+  .streak-dot-on .streak-dot-letter { color: var(--orange); }
   .streak-dot-on .streak-dot-circle { background: var(--orange); border-color: var(--orange); }
-  .streak-dot-today .streak-dot-circle { outline: 2px solid var(--orange); outline-offset: 1px; }
+  .streak-dot-today .streak-dot-letter { color: var(--text2); }
+  .streak-dot-today .streak-dot-circle { border: 2px solid var(--orange); background: transparent; }
+  .streak-dot-today.streak-dot-on .streak-dot-circle { background: var(--orange); }
+  .streak-dot-future .streak-dot-circle { opacity: 0.3; }
+  .streak-dot-future .streak-dot-letter { opacity: 0.3; }
 
   /* Grade mini chips (per-subject in projected grade card) */
   .grade-mini-row { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -2336,6 +2344,39 @@ const TOPIC_RESOURCES = {
         { label: 'Isaac Physics — Capacitors', url: 'https://isaacphysics.org/topics/capacitors' },
       ],
     },
+    'Circular Motion': {
+      brief: 'Always identify what force is providing the centripetal force — it is never a new force, but an existing one (gravity, tension, normal reaction) directed toward the centre. Know a=v²/r=ω²r and F=mv²/r. For vertical circles, minimum speed at the top is found by setting centripetal force equal to gravity alone (N=0). Angular velocity ω=2π/T links period, radius, and speed.',
+      resources: [
+        { label: 'PMT Revision & Questions — Circular Motion', url: 'https://www.physicsandmathstutor.com/physics-revision/a-level-physics/circular-motion/' },
+        { label: 'Isaac Physics — Circular Motion', url: 'https://isaacphysics.org/topics/circular_motion' },
+        { label: 'Science Shorts — Circular Motion (YouTube)', url: 'https://www.youtube.com/watch?v=bpFK2VCRHUs' },
+      ],
+    },
+    'Electric Fields': {
+      brief: 'Electric and gravitational fields share the same mathematical structure — study them in parallel. Key formulas: F=kQq/r² (Coulomb), E=F/Q=kQ/r² (radial), E=V/d (uniform). Draw field lines and equipotentials for point charges and parallel plates. For charged particle motion in a uniform field, split into components (horizontal constant velocity, vertical acceleration from F=QE).',
+      resources: [
+        { label: 'PMT Revision & Questions — Electric Fields', url: 'https://www.physicsandmathstutor.com/physics-revision/a-level-physics/electric-fields/' },
+        { label: 'Isaac Physics — Electric Fields', url: 'https://isaacphysics.org/topics/electric_fields' },
+        { label: 'Physics Online — Electric Fields (YouTube)', url: 'https://www.youtube.com/watch?v=mdulzuz5HKY' },
+      ],
+    },
+    'Magnetic Fields': {
+      brief: 'Use Fleming\'s left-hand rule for motor effect (F=BIL, F=BQv) and the right-hand rule for field direction around a wire. Electromagnetic induction: Faraday\'s law gives the magnitude (ε=ΔΦ/Δt), Lenz\'s law gives the direction (opposing change). Transformers: V₁/V₂=N₁/N₂, and ideal transformers have P_in=P_out. Mass spectrometers and cyclotrons are common application contexts.',
+      resources: [
+        { label: 'PMT Revision & Questions — Magnetic Fields', url: 'https://www.physicsandmathstutor.com/physics-revision/a-level-physics/magnetic-fields/' },
+        { label: 'Isaac Physics — Magnetic Fields', url: 'https://isaacphysics.org/topics/magnetic_fields' },
+        { label: 'Physics Online — Magnetic Fields (YouTube)', url: 'https://www.youtube.com/watch?v=LqQEQETKn98' },
+      ],
+    },
+    'Nuclear & Particle Physics': {
+      brief: 'Learn the quark composition of protons (uud) and neutrons (udd), and how beta-minus decay changes a down quark to up (releasing W⁻). Know the four fundamental forces, their ranges, and exchange particles. For nuclear energy: mass defect Δm gives binding energy via E=Δmc². The binding energy per nucleon curve peaks at Fe-56 — fission and fusion both move toward this peak. Radioactive decay: N=N₀e^(−λt), activity A=λN, and half-life T½=ln2/λ.',
+      resources: [
+        { label: 'PMT Revision — Particle Physics', url: 'https://www.physicsandmathstutor.com/physics-revision/a-level-physics/particle-physics/' },
+        { label: 'PMT Revision — Nuclear Physics', url: 'https://www.physicsandmathstutor.com/physics-revision/a-level-physics/nuclear-physics/' },
+        { label: 'Isaac Physics — Nuclear', url: 'https://isaacphysics.org/topics/nuclear' },
+        { label: 'The Particle Adventure (interactive)', url: 'https://www.particleadventure.org/' },
+      ],
+    },
   },
   cs: {
     'CPU Architecture & the Fetch-Decode-Execute Cycle': {
@@ -3787,17 +3828,24 @@ function renderDashboard() {
 
   const streakMsg = streak >= 14 ? 'Two-week streak.' : streak >= 7 ? 'Strong week.' : streak >= 3 ? 'Solid rhythm.' : streak >= 1 ? 'Keep it going.' : 'Start your streak today.';
 
-  // Streak mini-calendar: last 13 days
+  // Streak mini-calendar: Mon–Sun of current week
   const dateSet = new Set(db.records.map(r => (r.date || '').split('T')[0]).filter(Boolean));
-  const dayLetters = ['S','M','T','W','T','F','S'];
+  const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   let streakDots = '';
-  for (let i = 12; i >= 0; i--) {
-    const d = new Date(); d.setDate(d.getDate() - i);
+  // Find Monday of current week
+  const today = new Date();
+  const todayKey = today.toISOString().split('T')[0];
+  const dayOfWeek = today.getDay(); // 0=Sun
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + mondayOffset + i);
     const key = d.toISOString().split('T')[0];
     const active = dateSet.has(key);
-    const isToday = i === 0;
-    const letter = dayLetters[d.getDay()];
-    streakDots += `<span class="streak-dot${active?' streak-dot-on':''}${isToday?' streak-dot-today':''}"><span class="streak-dot-letter">${letter}</span><span class="streak-dot-circle"></span></span>`;
+    const isToday = key === todayKey;
+    const isFuture = d > today;
+    const label = DAY_LABELS[i];
+    streakDots += `<span class="streak-dot${active?' streak-dot-on':''}${isToday?' streak-dot-today':''}${isFuture?' streak-dot-future':''}"><span class="streak-dot-letter">${label}</span><span class="streak-dot-circle"></span></span>`;
   }
 
   // Per-subject grade projection
@@ -3855,20 +3903,20 @@ function renderDashboard() {
 
   html += `<div class="stat-cards-row">
     <div class="stat-card">
-      <div class="stat-card-eyebrow">🔥 Streak</div>
+      <div class="stat-card-eyebrow"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg> Streak</div>
       <div class="stat-card-big" style="color:var(--orange)">${streak}<span class="stat-card-unit"> day${streak!==1?'s':''}</span></div>
       <div class="stat-card-label" style="margin-bottom:10px">${streakMsg}</div>
       <div class="streak-dots-row">${streakDots}</div>
     </div>
     <div class="stat-card" style="background:linear-gradient(135deg, var(--surface) 0%, color-mix(in srgb, var(--surface) 80%, ${headlineGlowColor}22) 100%)">
       <div class="stat-card-grade-glow" style="background:radial-gradient(circle, ${headlineGlowColor}22 0%, transparent 70%)"></div>
-      <div class="stat-card-eyebrow">◎ Projected Grade</div>
+      <div class="stat-card-eyebrow"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg> Projected Grade</div>
       <div class="stat-card-big" style="color:${headlineGradeColor}">${headlineGrade || '—'}</div>
       <div class="stat-card-label">${Math.round(db.records.reduce((s,r)=>s+(r.totalAvail>0?r.totalScored/r.totalAvail*100:0),0)/db.records.length)}% rolling avg.</div>
       ${motivMsg ? `<div class="stat-card-sublabel" style="color:${recentPctDelta>=0?'var(--green)':'var(--red)'}">${motivMsg}</div>` : ''}
     </div>
     <div class="stat-card">
-      <div class="stat-card-eyebrow">□ Papers Logged</div>
+      <div class="stat-card-eyebrow"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Papers Logged</div>
       <div class="stat-card-big" style="color:var(--text)">${totalPapers}</div>
       <div class="stat-card-label" style="margin-bottom:10px">${paperTarget}</div>
       <div class="papers-mini-grid">${papersBySubj}</div>
@@ -4162,11 +4210,11 @@ function openPaperAvgDetail(subject, paperKey) {
 
   const shortKey = paperKey.replace('Paper ','P');
 
-  let rowsHtml = recs.map((r,i) => {
+  let rowsHtml = recs.map((r) => {
     const pct = r.totalAvail > 0 ? Math.round(r.totalScored/r.totalAvail*100) : 0;
     const grade = r.grade || _pctToGrade(pct);
     const dateLabel = r.date ? new Date(r.date).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : '—';
-    return `<tr style="cursor:pointer" onclick="openModal(getDB().records.filter(rec=>rec.subject==='${subject.replace(/'/g,"\\'")}' && rec.paperKey==='${paperKey.replace(/'/g,"\\'")}')[${i}])">
+    return `<tr style="cursor:pointer" onclick="openModal(getDB().records.find(rec=>rec.id===${r.id}))">
       <td>${dateLabel}</td>
       <td>${_esc(String(r.year||'—'))}</td>
       <td>${r.totalScored}/${r.totalAvail}</td>
