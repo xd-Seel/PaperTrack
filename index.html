@@ -81,6 +81,25 @@
     --current-accent: var(--accent-m);
     --current-dim: var(--accent-m-dim);
   }
+  html[data-theme="light"] {
+    --bg: #f5f5f0;
+    --surface: #ffffff;
+    --surface2: #f0f0eb;
+    --border: #e0e0d8;
+    --border2: #d0d0c8;
+    --text: #1a1a1a;
+    --text2: #555550;
+    --text3: #999990;
+    --accent-m: #c9900a;
+    --accent-p: #0077aa;
+    --accent-cs: #2a7a2a;
+    --accent-m-dim: rgba(201,144,10,0.10);
+    --accent-p-dim: rgba(0,119,170,0.10);
+    --accent-cs-dim: rgba(42,122,42,0.10);
+    --red: #cc3333;
+    --green: #2a882a;
+    --orange: #cc6600;
+  }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html { scroll-behavior: smooth; }
   body {
@@ -965,6 +984,41 @@
   }
 
   /* Paper-type averages */
+  /* Personal Bests heatmap */
+  .pb-grid {
+    display: grid;
+    grid-template-columns: 42px repeat(var(--pb-cols, 4), 1fr);
+    gap: 4px;
+    overflow-x: auto;
+  }
+  .pb-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 4px;
+    border-radius: var(--radius-sm);
+    min-height: 48px;
+  }
+  .pb-header {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    font-weight: 600;
+    min-height: 28px;
+  }
+  .pb-row-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    justify-content: center;
+  }
+  .pb-empty { color: var(--text3); font-family: var(--mono); font-size: 11px; background: var(--surface2); }
+  .pb-score { cursor: pointer; transition: filter .12s; }
+  .pb-score:hover { filter: brightness(1.15); }
+  .pb-pct { font-family: var(--mono); font-size: 13px; font-weight: 600; line-height: 1; }
+  .pb-grade { font-family: var(--mono); font-size: 9px; opacity: 0.75; margin-top: 2px; }
+
   .paper-avg-subject { padding: 14px 0; border-bottom: 1px solid var(--border); }
   .paper-avg-subject:last-child { border-bottom: none; padding-bottom: 0; }
   .paper-avg-subject:first-child { padding-top: 0; }
@@ -1225,6 +1279,16 @@
   .settings-row-left { flex:1; }
   .settings-row-label { font-size:13px; font-weight:500; }
   .settings-row-sub { font-size:11px; color:var(--text3); font-family:var(--mono); margin-top:3px; }
+  .theme-toggle-wrap { display:flex; gap:6px; }
+  .theme-toggle-btn {
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 14px; border-radius: var(--radius-sm);
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text2); font-family: var(--mono); font-size: 12px;
+    cursor: pointer; transition: border-color .15s, color .15s;
+  }
+  .theme-toggle-btn:hover { border-color: var(--border2); color: var(--text); }
+  .theme-toggle-btn.active { border-color: var(--current-accent); color: var(--current-accent); background: var(--current-dim); }
   .profile-input {
     width:200px !important;
     font-size:13px !important;
@@ -3394,7 +3458,17 @@ function setupInput(inp, maxMarks) {
         }
       }
     } else if (e.key === 'Backspace') {
-      // allow default
+      if (inp.value === '') {
+        e.preventDefault();
+        const idx = parseInt(inp.dataset.inputIdx);
+        if (idx > 0) {
+          const prev = allInputRefs[idx - 1];
+          prev.focus();
+          prev.value = '';
+          prev.classList.remove('filled','over');
+          prev.dispatchEvent(new Event('input'));
+        }
+      }
     } else if (e.key === 'Tab') {
       // allow default tab behaviour
     } else if (e.key === 'Enter') {
@@ -4531,40 +4605,62 @@ function renderAnalytics() {
   });
   html += `</div>`;
 
-  // ── Score trend ───────────────────────────────────────
-  html += `<div class="section-header-row" style="margin-top:32px"><div class="section-title">Score trend over time</div></div>`;
-  const chartSubjects = _analyticsSubjectFilter === 'all' ? allSubjects : [_analyticsSubjectFilter];
-  chartSubjects.forEach(sub => {
-    const recs = db.records.filter(r => r.subject===sub);
-    if (recs.length < 2) return;
+  // ── Personal Bests heatmap ────────────────────────────
+  html += `<div class="section-header-row" style="margin-top:32px"><div class="section-title">Personal Bests</div><span style="font-family:var(--mono);font-size:11px;color:var(--text3)">Best score per paper &amp; year</span></div>`;
+  const pbSubjects = _analyticsSubjectFilter === 'all' ? allSubjects : [_analyticsSubjectFilter];
+  let anyPBData = false;
+  pbSubjects.forEach(sub => {
+    const recs = db.records.filter(r => r.subject === sub);
+    if (recs.length === 0) return;
+    anyPBData = true;
     const cat = SUBJECT_CATALOG[sub] || PAPERS[sub];
     const subName = cat?.name || sub;
+    const color = cat?.color || '#f5c542';
+    // Group by paperKey → year → best pct
     const paperKeys = [...new Set(recs.map(r => r.paperKey))].sort();
-    // Legend chips
-    const legendHtml = paperKeys.map((pk, i) => {
-      const c = _paperLineColor(cat?.color || '#f5c542', i, paperKeys.length);
-      return `<span class="chart-legend-chip"><span style="display:inline-block;width:20px;height:2px;background:${c};vertical-align:middle;border-radius:2px;margin-right:4px"></span>${_esc(pk.replace('Paper ','P'))}</span>`;
-    }).join('');
+    const years = [...new Set(recs.map(r => r.year).filter(Boolean))].sort((a,b) => a-b);
+    if (years.length === 0) return;
+
+    // Build grid: rows = paperKey, cols = year
+    let gridHtml = `<div class="pb-grid" style="--pb-cols:${years.length + 1}">`;
+    // Header row
+    gridHtml += `<div class="pb-cell pb-header pb-row-label"></div>`;
+    years.forEach(yr => { gridHtml += `<div class="pb-cell pb-header">${yr}</div>`; });
+
+    paperKeys.forEach(pk => {
+      const shortKey = pk.replace('Paper ', 'P');
+      gridHtml += `<div class="pb-cell pb-row-label" style="color:${color}">${_esc(shortKey)}</div>`;
+      years.forEach(yr => {
+        const attempts = recs.filter(r => r.paperKey === pk && r.year === yr);
+        if (attempts.length === 0) {
+          gridHtml += `<div class="pb-cell pb-empty">—</div>`;
+        } else {
+          const best = attempts.reduce((best, r) => {
+            const pct = r.totalAvail > 0 ? r.totalScored / r.totalAvail : 0;
+            return pct > best.pct ? { pct, r } : best;
+          }, { pct: -1, r: null });
+          const pct = Math.round(best.pct * 100);
+          const grade = _pctToGrade(pct);
+          const intensity = Math.max(0, Math.min(1, pct / 100));
+          const cellBg = `color-mix(in srgb, ${color} ${Math.round(intensity * 40 + 5)}%, transparent)`;
+          const textColor = pct >= 60 ? color : 'var(--text2)';
+          gridHtml += `<div class="pb-cell pb-score" style="background:${cellBg}" title="${_esc(pk)} ${yr}: ${pct}% (${grade}) — ${attempts.length} attempt${attempts.length!==1?'s':''}" onclick="openPaperAvgDetail('${sub}','${pk.replace(/'/g,"\\'")}')">
+            <span class="pb-pct" style="color:${textColor}">${pct}%</span>
+            <span class="pb-grade" style="color:${textColor}">${grade}</span>
+          </div>`;
+        }
+      });
+    });
+    gridHtml += `</div>`;
+
     html += `<div class="card" style="margin-bottom:14px">
-      <div class="card-title-row">
-        <span class="card-title">${_esc(subName)}</span>
-        <div class="chart-legend">${legendHtml}</div>
-      </div>
-      <div class="prog-chart" style="height:200px"><canvas id="chart-${sub}"></canvas></div>
+      <div class="card-title-row"><span class="card-title">${_esc(subName)}</span><span style="font-family:var(--mono);font-size:10px;color:var(--text3)">${recs.length} attempt${recs.length!==1?'s':''} logged</span></div>
+      ${gridHtml}
     </div>`;
   });
+  if (!anyPBData) html += `<p class="empty-state">No data yet — log some papers to see personal bests.</p>`;
 
   el.innerHTML = html;
-
-  // Draw canvases
-  chartSubjects.forEach(sub => {
-    const recs = db.records.filter(r => r.subject===sub);
-    if (recs.length < 2) return;
-    const canvas = document.getElementById('chart-' + sub);
-    if (!canvas) return;
-    const cat = SUBJECT_CATALOG[sub] || PAPERS[sub];
-    drawLineChartMulti(canvas, recs, cat?.color || '#f5c542');
-  });
 }
 
 function _paperLineColor(baseColor, idx, total) {
@@ -4597,6 +4693,11 @@ function drawLineChartMulti(canvas, recs, baseColor) {
   const W = canvas.offsetWidth || 560;
   const H = 200;
   canvas.width = W;
+  // Theme-aware colours
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  const gridColor = isLight ? '#e0e0d8' : '#2a2d38';
+  const labelColor = isLight ? '#999990' : '#5a5e74';
+  const dotBorder = isLight ? '#f5f5f0' : '#0d0e11';
   canvas.height = H;
 
   // Group by paperKey, sorted
@@ -4613,10 +4714,10 @@ function drawLineChartMulti(canvas, recs, baseColor) {
   // Grid lines + y-axis labels
   [0, 25, 50, 75, 100].forEach(v => {
     const y = pad.t + cH - (v / 100) * cH;
-    ctx.strokeStyle = '#2a2d38';
+    ctx.strokeStyle = gridColor;
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
-    ctx.fillStyle = '#5a5e74';
+    ctx.fillStyle = labelColor;
     ctx.font = '10px DM Mono, monospace';
     ctx.textAlign = 'right';
     ctx.fillText(v + '%', pad.l - 5, y + 3);
@@ -4671,7 +4772,7 @@ function drawLineChartMulti(canvas, recs, baseColor) {
       ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
       ctx.fillStyle = color;
       ctx.fill();
-      ctx.strokeStyle = '#0d0e11';
+      ctx.strokeStyle = dotBorder;
       ctx.lineWidth = 2;
       ctx.stroke();
 
@@ -4687,7 +4788,7 @@ function drawLineChartMulti(canvas, recs, baseColor) {
   allDates.forEach(ds => {
     const x = xForDate(ds);
     const label = new Date(ds).toLocaleDateString('en-GB', {day:'numeric',month:'short'});
-    ctx.fillStyle = '#5a5e74';
+    ctx.fillStyle = labelColor;
     ctx.font = '9px DM Mono, monospace';
     ctx.textAlign = 'center';
     ctx.fillText(label, x, H - 6);
@@ -4775,6 +4876,17 @@ const SUBJECT_CATALOG = {
 // ═══════════════════════════════════════════════════
 //  SETTINGS STORAGE
 // ═══════════════════════════════════════════════════
+function setTheme(theme) {
+  localStorage.setItem('papertrack_theme', theme);
+  document.documentElement.setAttribute('data-theme', theme === 'light' ? 'light' : '');
+  if (document.getElementById('settings-content')?.innerHTML) renderSettings();
+}
+// Apply saved theme immediately
+(function() {
+  const t = localStorage.getItem('papertrack_theme') || 'dark';
+  if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+})();
+
 function getSettings() {
   try { return JSON.parse(localStorage.getItem('papertrack_settings') || '{}'); } catch { return {}; }
 }
@@ -5121,6 +5233,27 @@ function renderSettings() {
         Question structures you've built. Delete a template to re-build it next time you log that paper.
       </p>
       <div id="settings-templates-list"></div>
+    </div>`;
+
+  // ── Appearance ───────────────────────────────────────
+  const currentTheme = localStorage.getItem('papertrack_theme') || 'dark';
+  html += `
+    <div class="settings-section">
+      <div class="settings-section-title">Appearance</div>
+      <div class="settings-row">
+        <div class="settings-row-left">
+          <div class="settings-row-label">Theme</div>
+          <div class="settings-row-sub">Switch between dark and light mode</div>
+        </div>
+        <div class="theme-toggle-wrap">
+          <button class="theme-toggle-btn${currentTheme==='dark'?' active':''}" onclick="setTheme('dark')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> Dark
+          </button>
+          <button class="theme-toggle-btn${currentTheme==='light'?' active':''}" onclick="setTheme('light')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg> Light
+          </button>
+        </div>
+      </div>
     </div>`;
 
   // ── Mocks date ───────────────────────────────────────
