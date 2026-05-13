@@ -13,6 +13,9 @@
     getAuth, GoogleAuthProvider, signInWithPopup, signOut as fbSignOut, onAuthStateChanged,
     createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile
   } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+  import {
+    getFirestore, doc, getDoc, setDoc, onSnapshot
+  } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
   const firebaseConfig = {
     apiKey: "AIzaSyCnHiTWbrlwYmbRZNvVwzlEx2i3IC8_gXA",
@@ -26,12 +29,80 @@
 
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
+  const db  = getFirestore(app);
   const googleProvider = new GoogleAuthProvider();
 
   function toUserObj(u) {
     return { name: u.displayName || u.email.split('@')[0], email: u.email, picture: u.photoURL, sub: u.uid };
   }
 
+  // ── Firestore helpers ────────────────────────────────
+  // Each user gets a single document: users/{uid}
+  // Shape: { records: [...], settings: {...}, updatedAt: ISO }
+
+  let _syncTimer = null;
+  let _unsubSnapshot = null;
+  let _currentUid = null;
+  let _remoteWritePending = false;
+
+  window._fbSaveToFirestore = async function(uid, payload) {
+    try {
+      await setDoc(doc(db, 'users', uid), {
+        records: payload.records,
+        settings: payload.settings,
+        updatedAt: new Date().toISOString(),
+      });
+    } catch(e) {
+      console.warn('Firestore write failed:', e.message);
+    }
+  };
+
+  window._fbScheduleSync = function(uid) {
+    if (!uid) return;
+    clearTimeout(_syncTimer);
+    _syncTimer = setTimeout(async () => {
+      const records = JSON.parse(localStorage.getItem('papertrack_v2') || '{"records":[]}').records;
+      const settings = JSON.parse(localStorage.getItem('papertrack_settings') || '{}');
+      await window._fbSaveToFirestore(uid, { records, settings });
+    }, 800);
+  };
+
+  window._fbLoadFromFirestore = async function(uid) {
+    try {
+      const snap = await getDoc(doc(db, 'users', uid));
+      if (!snap.exists()) return null;
+      return snap.data();
+    } catch(e) {
+      console.warn('Firestore read failed:', e.message);
+      return null;
+    }
+  };
+
+  // Live listener: when another device writes, pull changes
+  window._fbStartListener = function(uid) {
+    if (_unsubSnapshot) _unsubSnapshot();
+    _currentUid = uid;
+    _unsubSnapshot = onSnapshot(doc(db, 'users', uid), (snap) => {
+      if (!snap.exists() || _remoteWritePending) return;
+      const remote = snap.data();
+      if (!remote?.records) return;
+      // Merge: keep any local records not in remote, then take remote as base
+      const local = JSON.parse(localStorage.getItem('papertrack_v2') || '{"records":[]}');
+      const remoteIds = new Set(remote.records.map(r => r.id));
+      const localOnly = local.records.filter(r => !remoteIds.has(r.id));
+      const merged = [...remote.records, ...localOnly].sort((a,b) => a.id - b.id);
+      const mergedDb = { records: merged };
+      localStorage.setItem('papertrack_v2', JSON.stringify(mergedDb));
+      if (typeof window._onFirestoreLiveUpdate === 'function') window._onFirestoreLiveUpdate();
+    }, (err) => { console.warn('Firestore listener error:', err.message); });
+  };
+
+  window._fbStopListener = function() {
+    if (_unsubSnapshot) { _unsubSnapshot(); _unsubSnapshot = null; }
+    _currentUid = null;
+  };
+
+  // ── Auth ─────────────────────────────────────────────
   window._fbSignInGoogle = () => signInWithPopup(auth, googleProvider)
     .then(r => window._onFirebaseSignIn(toUserObj(r.user)))
     .catch(err => { if (err.code !== 'auth/popup-closed-by-user') window._onFirebaseSignInError(err); });
@@ -48,10 +119,11 @@
       })
       .catch(err => window._onFirebaseSignInError(err));
 
-  window._fbSignOut = () => fbSignOut(auth);
+  window._fbSignOut = () => { window._fbStopListener(); fbSignOut(auth); };
 
   onAuthStateChanged(auth, user => {
     if (user) window._onFirebaseSignIn(toUserObj(user));
+    else window._fbStopListener();
   });
 </script>
 <style>
@@ -2022,6 +2094,9 @@ function saveDB(db) {
   } catch {
     toast('Could not save — storage may be full or unavailable.', 'error');
   }
+  // Sync to Firestore if signed in
+  const uid = getSettings().googleUser?.sub;
+  if (uid && window._fbScheduleSync) window._fbScheduleSync(uid);
 }
 
 // ─── TEMPLATES (user-built question structures, scoped to subject+paper+year) ───
@@ -4993,7 +5068,7 @@ function updateProfileUI() {
 }
 
 // Called by Firebase module on successful sign-in or auth state restore
-window._onFirebaseSignIn = function(userData) {
+window._onFirebaseSignIn = async function(userData) {
   const s = getSettings();
   const alreadySignedIn = !!s.googleUser;
   s.googleUser = userData;
@@ -5002,10 +5077,50 @@ window._onFirebaseSignIn = function(userData) {
   updateProfileUI();
   const settingsEl = document.getElementById('view-settings');
   if (settingsEl?.classList.contains('active')) renderSettings();
+
   if (!alreadySignedIn) {
-    toast(`Welcome, ${userData.name}!`, 'success');
-    checkOnboarding();
+    toast(`Welcome, ${userData.name}! Syncing your data…`, 'success');
   }
+
+  // Load from Firestore and merge with local data
+  if (window._fbLoadFromFirestore) {
+    const remote = await window._fbLoadFromFirestore(userData.sub);
+    if (remote?.records?.length) {
+      const local = getDB();
+      const localIds = new Set(local.records.map(r => r.id));
+      const remoteOnly = remote.records.filter(r => !localIds.has(r.id));
+      if (remoteOnly.length > 0) {
+        const merged = { records: [...local.records, ...remoteOnly].sort((a,b) => a.id - b.id) };
+        localStorage.setItem('papertrack_v2', JSON.stringify(merged));
+        toast(`Synced ${remoteOnly.length} paper${remoteOnly.length !== 1 ? 's' : ''} from your other device.`, 'success');
+        renderDashboard();
+      }
+      // Also restore settings from remote if local has fewer subjects
+      if (remote.settings?.selectedSubjects && !getSettings().selectedSubjects) {
+        const cur = getSettings();
+        cur.selectedSubjects = remote.settings.selectedSubjects;
+        saveSettings(cur);
+      }
+    }
+    // Push any local-only data up to Firestore
+    if (window._fbSaveToFirestore) {
+      const finalDb = getDB();
+      const finalSettings = getSettings();
+      await window._fbSaveToFirestore(userData.sub, { records: finalDb.records, settings: finalSettings });
+    }
+    // Start live listener for real-time cross-device updates
+    if (window._fbStartListener) window._fbStartListener(userData.sub);
+  }
+
+  if (!alreadySignedIn) checkOnboarding();
+};
+
+// Called by Firestore live listener when another device writes
+window._onFirestoreLiveUpdate = function() {
+  renderDashboard();
+  const active = document.querySelector('.view.active');
+  if (active?.id?.startsWith('view-hist-')) renderHistory(active.id.replace('view-hist-',''));
+  if (active?.id === 'view-analytics') renderAnalytics();
 };
 
 window._onFirebaseSignInError = function(err) {
@@ -5068,11 +5183,11 @@ function signOut() {
   const s = getSettings();
   delete s.googleUser;
   saveSettings(s);
-  if (window._fbSignOut) window._fbSignOut();
+  if (window._fbSignOut) window._fbSignOut(); // also calls _fbStopListener
   updateProfileUI();
   const settingsEl = document.getElementById('view-settings');
   if (settingsEl?.classList.contains('active')) renderSettings();
-  toast('Signed out.', 'info');
+  toast('Signed out. Your data is saved locally.', 'info');
 }
 
 // ═══════════════════════════════════════════════════
@@ -5188,6 +5303,10 @@ function renderSettings() {
         <div class="google-acct-info">
           <div class="google-acct-name" style="font-size:14px">${_esc(user.name || 'User')}</div>
           <div class="google-acct-email">${_esc(user.email || '')}</div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--green);margin-top:4px">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Cloud sync active — data saved across devices
+          </div>
         </div>
         <button class="btn btn-ghost" onclick="signOut()" style="flex-shrink:0">Sign out</button>
       </div>`;
