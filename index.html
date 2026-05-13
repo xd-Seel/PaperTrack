@@ -13,6 +13,9 @@
     getAuth, GoogleAuthProvider, signInWithPopup, signOut as fbSignOut, onAuthStateChanged,
     createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile
   } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+  import {
+    getFirestore, doc, getDoc, setDoc, onSnapshot
+  } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
   const firebaseConfig = {
     apiKey: "AIzaSyCnHiTWbrlwYmbRZNvVwzlEx2i3IC8_gXA",
@@ -26,12 +29,80 @@
 
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
+  const db  = getFirestore(app);
   const googleProvider = new GoogleAuthProvider();
 
   function toUserObj(u) {
     return { name: u.displayName || u.email.split('@')[0], email: u.email, picture: u.photoURL, sub: u.uid };
   }
 
+  // ── Firestore helpers ────────────────────────────────
+  // Each user gets a single document: users/{uid}
+  // Shape: { records: [...], settings: {...}, updatedAt: ISO }
+
+  let _syncTimer = null;
+  let _unsubSnapshot = null;
+  let _currentUid = null;
+  let _remoteWritePending = false;
+
+  window._fbSaveToFirestore = async function(uid, payload) {
+    try {
+      await setDoc(doc(db, 'users', uid), {
+        records: payload.records,
+        settings: payload.settings,
+        updatedAt: new Date().toISOString(),
+      });
+    } catch(e) {
+      console.warn('Firestore write failed:', e.message);
+    }
+  };
+
+  window._fbScheduleSync = function(uid) {
+    if (!uid) return;
+    clearTimeout(_syncTimer);
+    _syncTimer = setTimeout(async () => {
+      const records = JSON.parse(localStorage.getItem('papertrack_v2') || '{"records":[]}').records;
+      const settings = JSON.parse(localStorage.getItem('papertrack_settings') || '{}');
+      await window._fbSaveToFirestore(uid, { records, settings });
+    }, 800);
+  };
+
+  window._fbLoadFromFirestore = async function(uid) {
+    try {
+      const snap = await getDoc(doc(db, 'users', uid));
+      if (!snap.exists()) return null;
+      return snap.data();
+    } catch(e) {
+      console.warn('Firestore read failed:', e.message);
+      return null;
+    }
+  };
+
+  // Live listener: when another device writes, pull changes
+  window._fbStartListener = function(uid) {
+    if (_unsubSnapshot) _unsubSnapshot();
+    _currentUid = uid;
+    _unsubSnapshot = onSnapshot(doc(db, 'users', uid), (snap) => {
+      if (!snap.exists() || _remoteWritePending) return;
+      const remote = snap.data();
+      if (!remote?.records) return;
+      // Merge: keep any local records not in remote, then take remote as base
+      const local = JSON.parse(localStorage.getItem('papertrack_v2') || '{"records":[]}');
+      const remoteIds = new Set(remote.records.map(r => r.id));
+      const localOnly = local.records.filter(r => !remoteIds.has(r.id));
+      const merged = [...remote.records, ...localOnly].sort((a,b) => a.id - b.id);
+      const mergedDb = { records: merged };
+      localStorage.setItem('papertrack_v2', JSON.stringify(mergedDb));
+      if (typeof window._onFirestoreLiveUpdate === 'function') window._onFirestoreLiveUpdate();
+    }, (err) => { console.warn('Firestore listener error:', err.message); });
+  };
+
+  window._fbStopListener = function() {
+    if (_unsubSnapshot) { _unsubSnapshot(); _unsubSnapshot = null; }
+    _currentUid = null;
+  };
+
+  // ── Auth ─────────────────────────────────────────────
   window._fbSignInGoogle = () => signInWithPopup(auth, googleProvider)
     .then(r => window._onFirebaseSignIn(toUserObj(r.user)))
     .catch(err => { if (err.code !== 'auth/popup-closed-by-user') window._onFirebaseSignInError(err); });
@@ -48,10 +119,11 @@
       })
       .catch(err => window._onFirebaseSignInError(err));
 
-  window._fbSignOut = () => fbSignOut(auth);
+  window._fbSignOut = () => { window._fbStopListener(); fbSignOut(auth); };
 
   onAuthStateChanged(auth, user => {
     if (user) window._onFirebaseSignIn(toUserObj(user));
+    else window._fbStopListener();
   });
 </script>
 <style>
@@ -80,6 +152,25 @@
     --sans: 'DM Sans', sans-serif;
     --current-accent: var(--accent-m);
     --current-dim: var(--accent-m-dim);
+  }
+  html[data-theme="light"] {
+    --bg: #f5f5f0;
+    --surface: #ffffff;
+    --surface2: #f0f0eb;
+    --border: #e0e0d8;
+    --border2: #d0d0c8;
+    --text: #1a1a1a;
+    --text2: #555550;
+    --text3: #999990;
+    --accent-m: #c9900a;
+    --accent-p: #0077aa;
+    --accent-cs: #2a7a2a;
+    --accent-m-dim: rgba(201,144,10,0.10);
+    --accent-p-dim: rgba(0,119,170,0.10);
+    --accent-cs-dim: rgba(42,122,42,0.10);
+    --red: #cc3333;
+    --green: #2a882a;
+    --orange: #cc6600;
   }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html { scroll-behavior: smooth; }
@@ -669,28 +760,34 @@
     margin-bottom: 20px;
   }
   .stat-card {
-    background: var(--surface);
+    background: linear-gradient(135deg, var(--surface) 0%, color-mix(in srgb, var(--surface) 85%, #1a1c26) 100%);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 20px 22px;
+    padding: 18px 20px;
+    position: relative;
+    overflow: hidden;
   }
   .stat-card-eyebrow {
     font-family: var(--mono);
-    font-size: 9px;
-    letter-spacing: 0.12em;
+    font-size: 11px;
+    letter-spacing: 0.10em;
     text-transform: uppercase;
     color: var(--text3);
-    margin-bottom: 6px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }
+  .stat-card-eyebrow svg { flex-shrink: 0; opacity: 0.7; }
   .stat-card-big {
     font-family: var(--serif);
-    font-size: 44px;
+    font-size: 56px;
     line-height: 1;
     margin-bottom: 4px;
   }
   .stat-card-unit {
     font-family: var(--sans);
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 400;
     opacity: 0.8;
   }
@@ -705,18 +802,52 @@
     color: var(--text3);
     line-height: 1.4;
   }
+  .stat-card-sublabel {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    margin-top: 4px;
+  }
+  /* Projected grade glow */
+  .stat-card-grade-glow {
+    position: absolute;
+    top: -20px; right: -20px;
+    width: 120px; height: 120px;
+    border-radius: 50%;
+    pointer-events: none;
+  }
 
   /* Streak dots */
-  .streak-dots-row { display: flex; gap: 4px; flex-wrap: wrap; }
+  .streak-dots-row { display: flex; gap: 6px; flex-wrap: nowrap; margin-top: 8px; }
   .streak-dot {
-    width: 11px; height: 11px;
-    border-radius: 3px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+  }
+  .streak-dot-letter {
+    font-family: var(--mono);
+    font-size: 8px;
+    color: var(--text3);
+    text-transform: uppercase;
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  .streak-dot-circle {
+    width: 28px; height: 28px;
+    border-radius: 50%;
     background: var(--surface2);
     border: 1px solid var(--border);
-    flex-shrink: 0;
+    transition: background .15s;
   }
-  .streak-dot-on { background: var(--orange); border-color: var(--orange); }
-  .streak-dot-today { outline: 2px solid var(--orange); outline-offset: 1px; }
+  .streak-dot-on .streak-dot-letter { color: var(--orange); }
+  .streak-dot-on .streak-dot-circle { background: var(--orange); border-color: var(--orange); }
+  .streak-dot-today .streak-dot-letter { color: var(--text2); }
+  .streak-dot-today .streak-dot-circle { border: 2px solid var(--orange); background: transparent; }
+  .streak-dot-today.streak-dot-on .streak-dot-circle { background: var(--orange); }
+  .streak-dot-future .streak-dot-circle { opacity: 0.3; }
+  .streak-dot-future .streak-dot-letter { opacity: 0.3; }
 
   /* Grade mini chips (per-subject in projected grade card) */
   .grade-mini-row { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -915,6 +1046,41 @@
   }
 
   /* Paper-type averages */
+  /* Personal Bests heatmap */
+  .pb-grid {
+    display: grid;
+    grid-template-columns: 42px repeat(var(--pb-cols, 4), 1fr);
+    gap: 4px;
+    overflow-x: auto;
+  }
+  .pb-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 4px;
+    border-radius: var(--radius-sm);
+    min-height: 48px;
+  }
+  .pb-header {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    font-weight: 600;
+    min-height: 28px;
+  }
+  .pb-row-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    justify-content: center;
+  }
+  .pb-empty { color: var(--text3); font-family: var(--mono); font-size: 11px; background: var(--surface2); }
+  .pb-score { cursor: pointer; transition: filter .12s; }
+  .pb-score:hover { filter: brightness(1.15); }
+  .pb-pct { font-family: var(--mono); font-size: 13px; font-weight: 600; line-height: 1; }
+  .pb-grade { font-family: var(--mono); font-size: 9px; opacity: 0.75; margin-top: 2px; }
+
   .paper-avg-subject { padding: 14px 0; border-bottom: 1px solid var(--border); }
   .paper-avg-subject:last-child { border-bottom: none; padding-bottom: 0; }
   .paper-avg-subject:first-child { padding-top: 0; }
@@ -1175,6 +1341,16 @@
   .settings-row-left { flex:1; }
   .settings-row-label { font-size:13px; font-weight:500; }
   .settings-row-sub { font-size:11px; color:var(--text3); font-family:var(--mono); margin-top:3px; }
+  .theme-toggle-wrap { display:flex; gap:6px; }
+  .theme-toggle-btn {
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 14px; border-radius: var(--radius-sm);
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text2); font-family: var(--mono); font-size: 12px;
+    cursor: pointer; transition: border-color .15s, color .15s;
+  }
+  .theme-toggle-btn:hover { border-color: var(--border2); color: var(--text); }
+  .theme-toggle-btn.active { border-color: var(--current-accent); color: var(--current-accent); background: var(--current-dim); }
   .profile-input {
     width:200px !important;
     font-size:13px !important;
@@ -1916,6 +2092,9 @@ function saveDB(db) {
   } catch {
     toast('Could not save — storage may be full or unavailable.', 'error');
   }
+  // Sync to Firestore if signed in
+  const uid = getSettings().googleUser?.sub;
+  if (uid && window._fbScheduleSync) window._fbScheduleSync(uid);
 }
 
 // ─── TEMPLATES (user-built question structures, scoped to subject+paper+year) ───
@@ -2097,7 +2276,7 @@ const TOPIC_KEYWORDS = {
     'Operating Systems': ['operating system','interrupt','scheduling','kernel','bios','multi-tasking','memory management','device driver','round robin','first come first served'],
     'Networks & Protocols': ['network','tcp','tcp/ip','protocol','firewall','packet','lan','wan','wifi','ethernet','dns','dhcp','client-server','peer-to-peer','encryption','ssl','https','router','switch'],
     'Databases & SQL': ['database','sql','primary key','foreign key','normalisation','acid','query','relational','referential integrity','transaction','locking','select','insert','update','delete from','join'],
-    'Representation of Data': ['binary','hexadecimal','floating point','two’s complement','two\'s complement','sign and magnitude','bit shift','ascii','unicode','denary','base conversion','character set','mantissa','exponent','normalisation'],
+    'Representation of Data': ['binary','hexadecimal','floating point','two\'s complement','two\'s complement','sign and magnitude','bit shift','ascii','unicode','denary','base conversion','character set','mantissa','exponent','normalisation'],
     'Boolean Algebra & Logic': ['boolean','truth table','karnaugh','logic gate','de morgan','nand','nor','xor','adder','flip-flop','d-type','half adder','full adder'],
     'Programming': ['pseudocode','parameter','file handling','scope','local variable','global variable','endfunction','endprocedure','data type','integer','string','array variable','indentation','syntax error'],
     'Algorithms': ['algorithm','search','binary search','linear search','dijkstra','a star','a*','shortest path'],
@@ -3075,7 +3254,17 @@ function setupInput(inp, maxMarks) {
         }
       }
     } else if (e.key === 'Backspace') {
-      // allow default
+      if (inp.value === '') {
+        e.preventDefault();
+        const idx = parseInt(inp.dataset.inputIdx);
+        if (idx > 0) {
+          const prev = allInputRefs[idx - 1];
+          prev.focus();
+          prev.value = '';
+          prev.classList.remove('filled','over');
+          prev.dispatchEvent(new Event('input'));
+        }
+      }
     } else if (e.key === 'Tab') {
       // allow default tab behaviour
     } else if (e.key === 'Enter') {
@@ -3509,15 +3698,24 @@ function renderDashboard() {
 
   const streakMsg = streak >= 14 ? 'Two-week streak.' : streak >= 7 ? 'Strong week.' : streak >= 3 ? 'Solid rhythm.' : streak >= 1 ? 'Keep it going.' : 'Start your streak today.';
 
-  // Streak mini-calendar: last 14 days
+  // Streak mini-calendar: Mon–Sun of current week
   const dateSet = new Set(db.records.map(r => (r.date || '').split('T')[0]).filter(Boolean));
+  const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   let streakDots = '';
-  for (let i = 13; i >= 0; i--) {
-    const d = new Date(); d.setDate(d.getDate() - i);
+  // Find Monday of current week
+  const today = new Date();
+  const todayKey = today.toISOString().split('T')[0];
+  const dayOfWeek = today.getDay(); // 0=Sun
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + mondayOffset + i);
     const key = d.toISOString().split('T')[0];
     const active = dateSet.has(key);
-    const isToday = i === 0;
-    streakDots += `<span class="streak-dot${active?' streak-dot-on':''}${isToday?' streak-dot-today':''}"></span>`;
+    const isToday = key === todayKey;
+    const isFuture = d > today;
+    const label = DAY_LABELS[i];
+    streakDots += `<span class="streak-dot${active?' streak-dot-on':''}${isToday?' streak-dot-today':''}${isFuture?' streak-dot-future':''}"><span class="streak-dot-letter">${label}</span><span class="streak-dot-circle"></span></span>`;
   }
 
   // Per-subject grade projection
@@ -3543,15 +3741,52 @@ function renderDashboard() {
     ? `Target: ${totalPapers + Math.max(0, Math.ceil(mocksCountdown / 3))} by mocks. ${Math.max(0, Math.ceil(mocksCountdown / 3))} to go.`
     : `${subjects.filter(s => db.records.some(r => r.subject===s)).length} subject${subjects.length!==1?'s':''} · ${monthSpan} month${monthSpan!==1?'s':''}`;
 
+  // Overall projected grade (best grade across subjects)
+  const gradeOrder = ['A*','A','B','C','D','E','U'];
+  let headlineGrade = null;
+  let headlineGradeColor = 'var(--text)';
+  let headlineGlowColor = '#ffffff';
+  let recentPctDelta = null;
+  subjects.forEach(sub => {
+    if (subjectGrades[sub]) {
+      const sg = subjectGrades[sub];
+      if (headlineGrade === null || gradeOrder.indexOf(sg.grade) < gradeOrder.indexOf(headlineGrade)) {
+        headlineGrade = sg.grade;
+      }
+    }
+  });
+  if (headlineGrade === 'A*' || headlineGrade === 'A') { headlineGradeColor = 'var(--green)'; headlineGlowColor = '#22c55e'; }
+  else if (headlineGrade === 'B') { headlineGradeColor = 'var(--accent-m)'; headlineGlowColor = '#fbbf24'; }
+  else if (headlineGrade === 'C') { headlineGradeColor = 'var(--orange)'; headlineGlowColor = '#f97316'; }
+  else if (headlineGrade) { headlineGradeColor = 'var(--red)'; headlineGlowColor = '#ef4444'; }
+
+  // "+X% in last N papers" motivational message
+  let motivMsg = '';
+  if (db.records.length >= 4) {
+    const sorted4 = [...db.records].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,4);
+    const avgLast4 = sorted4.reduce((s,r)=>s+(r.totalAvail>0?r.totalScored/r.totalAvail*100:0),0)/sorted4.length;
+    const allAvg = db.records.reduce((s,r)=>s+(r.totalAvail>0?r.totalScored/r.totalAvail*100:0),0)/db.records.length;
+    const delta = Math.round(avgLast4 - allAvg);
+    recentPctDelta = delta;
+    motivMsg = delta >= 0 ? `+${delta}% in the last 4 papers` : `${delta}% in the last 4 papers`;
+  }
+
   html += `<div class="stat-cards-row">
     <div class="stat-card">
-      <div class="stat-card-eyebrow">Streak</div>
+      <div class="stat-card-eyebrow"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg> Streak</div>
       <div class="stat-card-big" style="color:var(--orange)">${streak}<span class="stat-card-unit"> day${streak!==1?'s':''}</span></div>
-      <div class="stat-card-label" style="margin-bottom:12px">${streakMsg}</div>
+      <div class="stat-card-label" style="margin-bottom:10px">${streakMsg}</div>
       <div class="streak-dots-row">${streakDots}</div>
     </div>
+    <div class="stat-card" style="background:linear-gradient(135deg, var(--surface) 0%, color-mix(in srgb, var(--surface) 80%, ${headlineGlowColor}22) 100%)">
+      <div class="stat-card-grade-glow" style="background:radial-gradient(circle, ${headlineGlowColor}22 0%, transparent 70%)"></div>
+      <div class="stat-card-eyebrow"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg> Projected Grade</div>
+      <div class="stat-card-big" style="color:${headlineGradeColor}">${headlineGrade || '—'}</div>
+      <div class="stat-card-label">${Math.round(db.records.reduce((s,r)=>s+(r.totalAvail>0?r.totalScored/r.totalAvail*100:0),0)/db.records.length)}% rolling avg.</div>
+      ${motivMsg ? `<div class="stat-card-sublabel" style="color:${recentPctDelta>=0?'var(--green)':'var(--red)'}">${motivMsg}</div>` : ''}
+    </div>
     <div class="stat-card">
-      <div class="stat-card-eyebrow">Papers Logged</div>
+      <div class="stat-card-eyebrow"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Papers Logged</div>
       <div class="stat-card-big" style="color:var(--text)">${totalPapers}</div>
       <div class="stat-card-label" style="margin-bottom:10px">${paperTarget}</div>
       <div class="papers-mini-grid">${papersBySubj}</div>
@@ -3970,7 +4205,7 @@ function renderAnalytics() {
         const g = _pctToGrade(avg);
         const barClass = avg >= 70 ? 'bar-good' : avg >= 40 ? 'bar-mid' : 'bar-bad';
         const shortKey = pk.replace('Paper ','P');
-        return `<div class="paper-avg-cell">
+        return `<div class="paper-avg-cell" style="cursor:pointer" onclick="openPaperAvgDetail('${_esc(sub)}','${_esc(pk)}')">
           <div class="paper-avg-key" style="color:${color}">${_esc(shortKey)}</div>
           <div class="paper-avg-pct">${avg}%</div>
           <div class="paper-avg-grade" style="color:${color}">${g}</div>
@@ -4067,40 +4302,62 @@ function renderAnalytics() {
   });
   html += `</div>`;
 
-  // ── Score trend ───────────────────────────────────────
-  html += `<div class="section-header-row" style="margin-top:32px"><div class="section-title">Score trend over time</div></div>`;
-  const chartSubjects = _analyticsSubjectFilter === 'all' ? allSubjects : [_analyticsSubjectFilter];
-  chartSubjects.forEach(sub => {
-    const recs = db.records.filter(r => r.subject===sub);
-    if (recs.length < 2) return;
+  // ── Personal Bests heatmap ────────────────────────────
+  html += `<div class="section-header-row" style="margin-top:32px"><div class="section-title">Personal Bests</div><span style="font-family:var(--mono);font-size:11px;color:var(--text3)">Best score per paper &amp; year</span></div>`;
+  const pbSubjects = _analyticsSubjectFilter === 'all' ? allSubjects : [_analyticsSubjectFilter];
+  let anyPBData = false;
+  pbSubjects.forEach(sub => {
+    const recs = db.records.filter(r => r.subject === sub);
+    if (recs.length === 0) return;
+    anyPBData = true;
     const cat = SUBJECT_CATALOG[sub] || PAPERS[sub];
     const subName = cat?.name || sub;
+    const color = cat?.color || '#f5c542';
+    // Group by paperKey → year → best pct
     const paperKeys = [...new Set(recs.map(r => r.paperKey))].sort();
-    // Legend chips
-    const legendHtml = paperKeys.map((pk, i) => {
-      const c = _paperLineColor(cat?.color || '#f5c542', i, paperKeys.length);
-      return `<span class="chart-legend-chip"><span style="display:inline-block;width:20px;height:2px;background:${c};vertical-align:middle;border-radius:2px;margin-right:4px"></span>${_esc(pk.replace('Paper ','P'))}</span>`;
-    }).join('');
+    const years = [...new Set(recs.map(r => r.year).filter(Boolean))].sort((a,b) => a-b);
+    if (years.length === 0) return;
+
+    // Build grid: rows = paperKey, cols = year
+    let gridHtml = `<div class="pb-grid" style="--pb-cols:${years.length + 1}">`;
+    // Header row
+    gridHtml += `<div class="pb-cell pb-header pb-row-label"></div>`;
+    years.forEach(yr => { gridHtml += `<div class="pb-cell pb-header">${yr}</div>`; });
+
+    paperKeys.forEach(pk => {
+      const shortKey = pk.replace('Paper ', 'P');
+      gridHtml += `<div class="pb-cell pb-row-label" style="color:${color}">${_esc(shortKey)}</div>`;
+      years.forEach(yr => {
+        const attempts = recs.filter(r => r.paperKey === pk && r.year === yr);
+        if (attempts.length === 0) {
+          gridHtml += `<div class="pb-cell pb-empty">—</div>`;
+        } else {
+          const best = attempts.reduce((best, r) => {
+            const pct = r.totalAvail > 0 ? r.totalScored / r.totalAvail : 0;
+            return pct > best.pct ? { pct, r } : best;
+          }, { pct: -1, r: null });
+          const pct = Math.round(best.pct * 100);
+          const grade = _pctToGrade(pct);
+          const intensity = Math.max(0, Math.min(1, pct / 100));
+          const cellBg = `color-mix(in srgb, ${color} ${Math.round(intensity * 40 + 5)}%, transparent)`;
+          const textColor = pct >= 60 ? color : 'var(--text2)';
+          gridHtml += `<div class="pb-cell pb-score" style="background:${cellBg}" title="${_esc(pk)} ${yr}: ${pct}% (${grade}) — ${attempts.length} attempt${attempts.length!==1?'s':''}" onclick="openPaperAvgDetail('${sub}','${pk.replace(/'/g,"\\'")}')">
+            <span class="pb-pct" style="color:${textColor}">${pct}%</span>
+            <span class="pb-grade" style="color:${textColor}">${grade}</span>
+          </div>`;
+        }
+      });
+    });
+    gridHtml += `</div>`;
+
     html += `<div class="card" style="margin-bottom:14px">
-      <div class="card-title-row">
-        <span class="card-title">${_esc(subName)}</span>
-        <div class="chart-legend">${legendHtml}</div>
-      </div>
-      <div class="prog-chart" style="height:200px"><canvas id="chart-${sub}"></canvas></div>
+      <div class="card-title-row"><span class="card-title">${_esc(subName)}</span><span style="font-family:var(--mono);font-size:10px;color:var(--text3)">${recs.length} attempt${recs.length!==1?'s':''} logged</span></div>
+      ${gridHtml}
     </div>`;
   });
+  if (!anyPBData) html += `<p class="empty-state">No data yet — log some papers to see personal bests.</p>`;
 
   el.innerHTML = html;
-
-  // Draw canvases
-  chartSubjects.forEach(sub => {
-    const recs = db.records.filter(r => r.subject===sub);
-    if (recs.length < 2) return;
-    const canvas = document.getElementById('chart-' + sub);
-    if (!canvas) return;
-    const cat = SUBJECT_CATALOG[sub] || PAPERS[sub];
-    drawLineChartMulti(canvas, recs, cat?.color || '#f5c542');
-  });
 }
 
 function _paperLineColor(baseColor, idx, total) {
@@ -4133,12 +4390,17 @@ function drawLineChartMulti(canvas, recs, baseColor) {
   const W = canvas.offsetWidth || 560;
   const H = 200;
   canvas.width = W;
+  // Theme-aware colours
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  const gridColor = isLight ? '#e0e0d8' : '#2a2d38';
+  const labelColor = isLight ? '#999990' : '#5a5e74';
+  const dotBorder = isLight ? '#f5f5f0' : '#0d0e11';
   canvas.height = H;
 
   // Group by paperKey, sorted
   const paperKeys = [...new Set(recs.map(r => r.paperKey))].sort();
-  // Collect all years that appear across any paper, sorted
-  const allYears = [...new Set(recs.map(r => r.year))].sort((a,b) => a-b);
+  // Collect all unique dates sorted chronologically
+  const allDates = [...new Set(recs.map(r => (r.date || '').split('T')[0]).filter(Boolean))].sort();
 
   const pad = { l: 34, r: 16, t: 12, b: 38 };
   const cW = W - pad.l - pad.r;
@@ -4149,34 +4411,34 @@ function drawLineChartMulti(canvas, recs, baseColor) {
   // Grid lines + y-axis labels
   [0, 25, 50, 75, 100].forEach(v => {
     const y = pad.t + cH - (v / 100) * cH;
-    ctx.strokeStyle = '#2a2d38';
+    ctx.strokeStyle = gridColor;
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
-    ctx.fillStyle = '#5a5e74';
+    ctx.fillStyle = labelColor;
     ctx.font = '10px DM Mono, monospace';
     ctx.textAlign = 'right';
     ctx.fillText(v + '%', pad.l - 5, y + 3);
   });
 
-  if (allYears.length === 0) return;
+  if (allDates.length === 0) return;
 
-  // x positions: evenly space all years
-  const xForYear = year => {
-    const idx = allYears.indexOf(year);
-    return pad.l + (allYears.length > 1 ? (idx / (allYears.length - 1)) * cW : cW / 2);
+  // x positions: evenly space all dates
+  const xForDate = dateStr => {
+    const idx = allDates.indexOf(dateStr);
+    return pad.l + (allDates.length > 1 ? (idx / (allDates.length - 1)) * cW : cW / 2);
   };
 
   // Draw each paper key as a separate series
   paperKeys.forEach((pk, pkIdx) => {
     const color = _paperLineColor(baseColor, pkIdx, paperKeys.length);
-    const seriesRecs = recs.filter(r => r.paperKey === pk).sort((a,b) => a.year - b.year);
+    const seriesRecs = recs.filter(r => r.paperKey === pk).sort((a,b) => new Date(a.date) - new Date(b.date));
     if (seriesRecs.length === 0) return;
 
     const pts = seriesRecs.map(r => ({
-      x: xForYear(r.year),
+      x: xForDate((r.date || '').split('T')[0]),
       y: pad.t + cH - (r.totalAvail > 0 ? r.totalScored / r.totalAvail : 0) * cH,
       pct: r.totalAvail > 0 ? Math.round(r.totalScored / r.totalAvail * 100) : 0,
-      year: r.year,
+      dateStr: (r.date || '').split('T')[0],
     }));
 
     // Area fill under this series
@@ -4207,7 +4469,7 @@ function drawLineChartMulti(canvas, recs, baseColor) {
       ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
       ctx.fillStyle = color;
       ctx.fill();
-      ctx.strokeStyle = '#0d0e11';
+      ctx.strokeStyle = dotBorder;
       ctx.lineWidth = 2;
       ctx.stroke();
 
@@ -4219,13 +4481,14 @@ function drawLineChartMulti(canvas, recs, baseColor) {
     });
   });
 
-  // X-axis year labels
-  allYears.forEach(yr => {
-    const x = xForYear(yr);
-    ctx.fillStyle = '#5a5e74';
+  // X-axis date labels
+  allDates.forEach(ds => {
+    const x = xForDate(ds);
+    const label = new Date(ds).toLocaleDateString('en-GB', {day:'numeric',month:'short'});
+    ctx.fillStyle = labelColor;
     ctx.font = '9px DM Mono, monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(String(yr), x, H - 6);
+    ctx.fillText(label, x, H - 6);
   });
 }
 
@@ -4310,6 +4573,17 @@ const SUBJECT_CATALOG = {
 // ═══════════════════════════════════════════════════
 //  SETTINGS STORAGE
 // ═══════════════════════════════════════════════════
+function setTheme(theme) {
+  localStorage.setItem('papertrack_theme', theme);
+  document.documentElement.setAttribute('data-theme', theme === 'light' ? 'light' : '');
+  if (document.getElementById('settings-content')?.innerHTML) renderSettings();
+}
+// Apply saved theme immediately
+(function() {
+  const t = localStorage.getItem('papertrack_theme') || 'dark';
+  if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+})();
+
 function getSettings() {
   try { return JSON.parse(localStorage.getItem('papertrack_settings') || '{}'); } catch { return {}; }
 }
@@ -4416,7 +4690,7 @@ function updateProfileUI() {
 }
 
 // Called by Firebase module on successful sign-in or auth state restore
-window._onFirebaseSignIn = function(userData) {
+window._onFirebaseSignIn = async function(userData) {
   const s = getSettings();
   const alreadySignedIn = !!s.googleUser;
   s.googleUser = userData;
@@ -4425,10 +4699,50 @@ window._onFirebaseSignIn = function(userData) {
   updateProfileUI();
   const settingsEl = document.getElementById('view-settings');
   if (settingsEl?.classList.contains('active')) renderSettings();
+
   if (!alreadySignedIn) {
-    toast(`Welcome, ${userData.name}!`, 'success');
-    checkOnboarding();
+    toast(`Welcome, ${userData.name}! Syncing your data…`, 'success');
   }
+
+  // Load from Firestore and merge with local data
+  if (window._fbLoadFromFirestore) {
+    const remote = await window._fbLoadFromFirestore(userData.sub);
+    if (remote?.records?.length) {
+      const local = getDB();
+      const localIds = new Set(local.records.map(r => r.id));
+      const remoteOnly = remote.records.filter(r => !localIds.has(r.id));
+      if (remoteOnly.length > 0) {
+        const merged = { records: [...local.records, ...remoteOnly].sort((a,b) => a.id - b.id) };
+        localStorage.setItem('papertrack_v2', JSON.stringify(merged));
+        toast(`Synced ${remoteOnly.length} paper${remoteOnly.length !== 1 ? 's' : ''} from your other device.`, 'success');
+        renderDashboard();
+      }
+      // Also restore settings from remote if local has fewer subjects
+      if (remote.settings?.selectedSubjects && !getSettings().selectedSubjects) {
+        const cur = getSettings();
+        cur.selectedSubjects = remote.settings.selectedSubjects;
+        saveSettings(cur);
+      }
+    }
+    // Push any local-only data up to Firestore
+    if (window._fbSaveToFirestore) {
+      const finalDb = getDB();
+      const finalSettings = getSettings();
+      await window._fbSaveToFirestore(userData.sub, { records: finalDb.records, settings: finalSettings });
+    }
+    // Start live listener for real-time cross-device updates
+    if (window._fbStartListener) window._fbStartListener(userData.sub);
+  }
+
+  if (!alreadySignedIn) checkOnboarding();
+};
+
+// Called by Firestore live listener when another device writes
+window._onFirestoreLiveUpdate = function() {
+  renderDashboard();
+  const active = document.querySelector('.view.active');
+  if (active?.id?.startsWith('view-hist-')) renderHistory(active.id.replace('view-hist-',''));
+  if (active?.id === 'view-analytics') renderAnalytics();
 };
 
 window._onFirebaseSignInError = function(err) {
@@ -4491,11 +4805,11 @@ function signOut() {
   const s = getSettings();
   delete s.googleUser;
   saveSettings(s);
-  if (window._fbSignOut) window._fbSignOut();
+  if (window._fbSignOut) window._fbSignOut(); // also calls _fbStopListener
   updateProfileUI();
   const settingsEl = document.getElementById('view-settings');
   if (settingsEl?.classList.contains('active')) renderSettings();
-  toast('Signed out.', 'info');
+  toast('Signed out. Your data is saved locally.', 'info');
 }
 
 // ═══════════════════════════════════════════════════
@@ -4611,6 +4925,10 @@ function renderSettings() {
         <div class="google-acct-info">
           <div class="google-acct-name" style="font-size:14px">${_esc(user.name || 'User')}</div>
           <div class="google-acct-email">${_esc(user.email || '')}</div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--green);margin-top:4px">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Cloud sync active — data saved across devices
+          </div>
         </div>
         <button class="btn btn-ghost" onclick="signOut()" style="flex-shrink:0">Sign out</button>
       </div>`;
@@ -4656,6 +4974,27 @@ function renderSettings() {
         Question structures you've built. Delete a template to re-build it next time you log that paper.
       </p>
       <div id="settings-templates-list"></div>
+    </div>`;
+
+  // ── Appearance ───────────────────────────────────────
+  const currentTheme = localStorage.getItem('papertrack_theme') || 'dark';
+  html += `
+    <div class="settings-section">
+      <div class="settings-section-title">Appearance</div>
+      <div class="settings-row">
+        <div class="settings-row-left">
+          <div class="settings-row-label">Theme</div>
+          <div class="settings-row-sub">Switch between dark and light mode</div>
+        </div>
+        <div class="theme-toggle-wrap">
+          <button class="theme-toggle-btn${currentTheme==='dark'?' active':''}" onclick="setTheme('dark')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> Dark
+          </button>
+          <button class="theme-toggle-btn${currentTheme==='light'?' active':''}" onclick="setTheme('light')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg> Light
+          </button>
+        </div>
+      </div>
     </div>`;
 
   // ── Mocks date ───────────────────────────────────────
