@@ -507,6 +507,32 @@
   }
   .grade-badge .gname { opacity: 0.6; margin-right: 4px; }
   .boundary-loading { color: var(--text3); font-family: var(--mono); font-size: 11px; }
+  .boundary-edit-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .boundary-edit-cell { display: flex; flex-direction: column; gap: 4px; }
+  .boundary-edit-cell label {
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text3);
+  }
+  .boundary-input {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 6px 8px;
+    width: 100%;
+    text-align: center;
+  }
+  .boundary-input:focus { outline: none; border-color: var(--current-accent); }
 
   /* ── HISTORY LIST ── */
   .paper-list { display: flex; flex-direction: column; gap: 10px; }
@@ -716,6 +742,31 @@
     color: var(--text3);
   }
   .papers-mini-count { font-weight: 500; }
+
+  /* Per-subject projected grade row */
+  .proj-grade-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .proj-grade-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 22px;
+  }
+  .proj-paper-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .proj-paper-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 5px 10px;
+    gap: 1px;
+  }
 
   /* Today's Pick */
   .todays-pick-card {
@@ -1532,9 +1583,32 @@
         </div>
 
         <div class="card mt24" id="boundary-card">
-          <div class="card-title">Grade Boundaries</div>
+          <div class="flex-between mb8" style="align-items:center">
+            <div class="card-title" style="margin:0">Grade Boundaries</div>
+            <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="toggleBoundaryEdit()">✎ Edit</button>
+          </div>
           <div id="boundary-content" class="boundary-loading">Fetching boundaries…</div>
-          <div id="grade-row" class="grade-row"></div>
+          <div id="grade-row" class="grade-row" style="margin-top:10px"></div>
+          <!-- Inline edit form -->
+          <div id="boundary-edit-form" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+            <p style="font-size:12px;color:var(--text2);margin-bottom:12px">
+              Enter raw mark boundaries (out of <span id="be-total-display">100</span> marks).
+              Check official values at your exam board's grade boundary page.
+            </p>
+            <div class="boundary-edit-grid">
+              <div class="boundary-edit-cell"><label>A*</label><input id="be-astar" type="number" min="0" max="200" class="boundary-input" placeholder="e.g. 77"></div>
+              <div class="boundary-edit-cell"><label>A</label><input id="be-a" type="number" min="0" max="200" class="boundary-input" placeholder="e.g. 66"></div>
+              <div class="boundary-edit-cell"><label>B</label><input id="be-b" type="number" min="0" max="200" class="boundary-input" placeholder="e.g. 55"></div>
+              <div class="boundary-edit-cell"><label>C</label><input id="be-c" type="number" min="0" max="200" class="boundary-input" placeholder="e.g. 44"></div>
+              <div class="boundary-edit-cell"><label>D</label><input id="be-d" type="number" min="0" max="200" class="boundary-input" placeholder="e.g. 34"></div>
+              <div class="boundary-edit-cell"><label>E</label><input id="be-e" type="number" min="0" max="200" class="boundary-input" placeholder="e.g. 25"></div>
+              <div class="boundary-edit-cell"><label>Total</label><input id="be-total" type="number" min="1" max="200" class="boundary-input" placeholder="e.g. 100"></div>
+            </div>
+            <div class="flex mt12" style="gap:8px">
+              <button class="btn btn-primary" onclick="saveBoundaryEdit()">Save Boundaries</button>
+              <button class="btn btn-ghost" onclick="toggleBoundaryEdit()">Cancel</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1764,9 +1838,9 @@ const KNOWN_BOUNDARIES = {
     }
   },
   physics: {
-    // OCR Physics A (H557) — component raw mark boundaries
-    // P1 (H557/01) and P2 (H557/02) out of 100, P3 (H557/03) out of 70
-    // Source: OCR AS and A Level grade boundary PDFs
+    // OCR Physics A (H556) — component raw mark boundaries
+    // H556/01: Modelling Physics /100, H556/02: Exploring Physics /100, H556/03: Unified Physics /70
+    // Source: OCR AS and A Level grade boundary PDFs (ocr.org.uk/administration/grade-boundaries/)
     'Paper 1': {
       2024:{Astar:73,A:62,B:52,C:43,D:33,E:24,total:100},
       2023:{Astar:68,A:59,B:50,C:41,D:32,E:24,total:100},
@@ -1779,7 +1853,7 @@ const KNOWN_BOUNDARIES = {
       2024:{Astar:72,A:62,B:52,C:42,D:33,E:24,total:100},
       2023:{Astar:71,A:62,B:52,C:42,D:33,E:24,total:100},
       2022:{Astar:67,A:58,B:49,C:40,D:31,E:23,total:100},
-      2019:{Astar:75,A:65,B:55,C:45,D:36,E:27,total:100},
+      2019:{Astar:77,A:66,B:55,C:44,D:34,E:25,total:100},
       2018:{Astar:72,A:62,B:52,C:43,D:34,E:25,total:100},
       2017:{Astar:69,A:59,B:50,C:41,D:32,E:23,total:100},
     },
@@ -2082,6 +2156,43 @@ function getLearnedKeywords() {
 }
 function saveLearnedKeywords(data) {
   try { localStorage.setItem('papertrack_learned', JSON.stringify(data)); } catch {}
+}
+
+// ─── USER BOUNDARY OVERRIDES ─────────────────────────────────────────────────
+// Shape: { subject: { paperKey: { year: { Astar, A, B, C, D, E, total, source? } } } }
+function getUserBoundaries() {
+  try { return JSON.parse(localStorage.getItem('papertrack_boundaries') || '{}'); } catch { return {}; }
+}
+function saveUserBoundary(sub, pk, yr, b) {
+  const data = getUserBoundaries();
+  if (!data[sub]) data[sub] = {};
+  if (!data[sub][pk]) data[sub][pk] = {};
+  data[sub][pk][yr] = b;
+  try { localStorage.setItem('papertrack_boundaries', JSON.stringify(data)); } catch {}
+}
+function getBoundary(sub, pk, yr) {
+  // User override wins over hardcoded
+  return getUserBoundaries()[sub]?.[pk]?.[yr] || KNOWN_BOUNDARIES[sub]?.[pk]?.[yr] || null;
+}
+function getTypicalBoundary(sub, pk) {
+  // Average all known boundaries for this subject+paper across years (as % of total),
+  // then express against the most recent year's total. Used for grade projection.
+  const user = getUserBoundaries();
+  const known = KNOWN_BOUNDARIES[sub]?.[pk] || {};
+  const userPk = user[sub]?.[pk] || {};
+  const merged = { ...known };
+  Object.assign(merged, userPk); // user overrides win
+  const years = Object.keys(merged).map(Number).filter(Boolean);
+  if (years.length === 0) return null;
+  const mostRecentYr = Math.max(...years);
+  const refTotal = merged[mostRecentYr].total;
+  const fields = ['Astar', 'A', 'B', 'C', 'D', 'E'];
+  const result = { total: refTotal, isTypical: true };
+  fields.forEach(f => {
+    const vals = years.map(y => (merged[y][f] != null ? merged[y][f] / merged[y].total : null)).filter(v => v != null);
+    result[f] = vals.length > 0 ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length * refTotal) : null;
+  });
+  return result.A != null ? result : null;
 }
 
 // Topic-name auto-tokens are a safety net for topics with sparse explicit keywords.
@@ -3057,54 +3168,89 @@ async function fetchBoundaries() {
   el.textContent = 'Loading grade boundaries…';
   gradeRow.innerHTML = '';
 
-  // Use known boundaries — live fetching from exam board PDFs would require CORS proxy
   const sub = currentSubject;
   const pk = currentPaperKey;
   const yr = currentYear;
 
-  const b = KNOWN_BOUNDARIES[sub]?.[pk]?.[yr];
+  // User overrides take priority over hardcoded data
+  const b = getBoundary(sub, pk, yr);
+  const isUserOverride = !!getUserBoundaries()[sub]?.[pk]?.[yr];
+
+  _renderBoundaryCard(b, sub, pk, yr, isUserOverride);
+}
+
+function _renderBoundaryCard(b, sub, pk, yr, isUserOverride) {
+  const el = document.getElementById('boundary-content');
+  const gradeRow = document.getElementById('grade-row');
+  if (!el || !gradeRow) return;
+  gradeRow.innerHTML = '';
+
   if (b) {
     currentBoundaries = b;
     el.className = '';
-
-    // Build official source URL
     const sourceUrls = {
-      maths: 'https://qualifications.pearson.com/en/support/support-topics/results-certification/grade-boundaries.html?Qualification-Family=AS-and-A-level',
-      physics: `https://www.ocr.org.uk/administration/grade-boundaries/`,
-      cs: `https://www.ocr.org.uk/administration/grade-boundaries/`
+      maths: 'https://qualifications.pearson.com/en/support/support-topics/results-certification/grade-boundaries.html',
+      physics: 'https://www.ocr.org.uk/administration/grade-boundaries/',
+      cs: 'https://www.ocr.org.uk/administration/grade-boundaries/',
     };
     const boardName = sub === 'maths' ? 'Pearson Edexcel' : 'OCR';
-    el.innerHTML = `<span style="font-size:11px;font-family:var(--mono);color:var(--text2)">${yr} ${PAPERS[sub].name} ${pk} — <strong style="color:var(--text)">${b.total}</strong> marks total &nbsp;·&nbsp; <a href="${sourceUrls[sub]}" target="_blank" style="color:var(--text3);text-decoration:none" title="Official ${boardName} grade boundaries">Source: ${boardName} ↗</a></span>`;
+    const sourceTag = sourceUrls[sub]
+      ? `&nbsp;·&nbsp;<a href="${sourceUrls[sub]}" target="_blank" style="color:var(--text3);text-decoration:none">Source: ${boardName} ↗</a>`
+      : '';
+    const overrideTag = isUserOverride
+      ? `&nbsp;·&nbsp;<span style="color:var(--orange);font-size:10px">✎ user-edited</span>`
+      : '';
+    el.innerHTML = `<span style="font-size:11px;font-family:var(--mono);color:var(--text2)">${yr} ${(PAPERS[sub]?.name||sub)} ${pk} — <strong style="color:var(--text)">${b.total}</strong> marks total${sourceTag}${overrideTag}</span>`;
 
-    const grades = [
-      { name:'A*', min:b.Astar },
-      { name:'A',  min:b.A },
-      { name:'B',  min:b.B },
-      { name:'C',  min:b.C },
-      { name:'D',  min:b.D },
-      { name:'E',  min:b.E },
-    ];
-    grades.forEach(g => {
+    [['A*',b.Astar],['A',b.A],['B',b.B],['C',b.C],['D',b.D],['E',b.E]].forEach(([name, min]) => {
       const badge = document.createElement('div');
       badge.className = 'grade-badge';
-      badge.dataset.min = g.min;
-      badge.innerHTML = `<span class="gname">${g.name}</span>${g.min}`;
+      badge.dataset.min = min;
+      badge.innerHTML = `<span class="gname">${name}</span>${min}`;
       gradeRow.appendChild(badge);
     });
     updateLiveScore();
-    toast(`Grade boundaries loaded for ${yr} ${pk}`, 'success');
   } else {
-    el.textContent = `Boundaries not available locally for ${yr} ${pk}. `;
-    const link = document.createElement('a');
-    link.href = sub==='maths'
-      ? `https://qualifications.pearson.com/en/qualifications/edexcel-a-levels/mathematics-2017.html`
-      : `https://www.ocr.org.uk/administration/support-and-tools/professional-development/grade-boundaries/`;
-    link.target = '_blank';
-    link.style.cssText = 'color:var(--current-accent);font-family:var(--mono);font-size:11px;';
-    link.textContent = 'Check official boundaries →';
-    el.appendChild(link);
     currentBoundaries = null;
+    el.className = '';
+    const link = sub === 'maths'
+      ? 'https://qualifications.pearson.com/en/qualifications/edexcel-a-levels/mathematics-2017.html'
+      : 'https://www.ocr.org.uk/administration/grade-boundaries/';
+    el.innerHTML = `<span style="font-size:11px;font-family:var(--mono);color:var(--text3)">No boundaries stored for ${yr} ${pk}. Enter them manually below or <a href="${link}" target="_blank" style="color:var(--current-accent)">look them up ↗</a>.</span>`;
   }
+}
+
+function toggleBoundaryEdit() {
+  const form = document.getElementById('boundary-edit-form');
+  if (!form) return;
+  const visible = form.style.display !== 'none';
+  form.style.display = visible ? 'none' : 'block';
+  if (!visible) _prefillBoundaryForm();
+}
+
+function _prefillBoundaryForm() {
+  const b = currentBoundaries || {};
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val != null ? val : ''; };
+  set('be-astar', b.Astar); set('be-a', b.A); set('be-b', b.B);
+  set('be-c', b.C); set('be-d', b.D); set('be-e', b.E); set('be-total', b.total);
+  const disp = document.getElementById('be-total-display');
+  if (disp) disp.textContent = b.total || '—';
+}
+
+function saveBoundaryEdit() {
+  const get = id => { const v = parseInt(document.getElementById(id)?.value); return isNaN(v) ? null : v; };
+  const b = {
+    Astar: get('be-astar'), A: get('be-a'), B: get('be-b'),
+    C: get('be-c'), D: get('be-d'), E: get('be-e'), total: get('be-total'),
+    source: 'user',
+  };
+  if (!b.A || !b.total) { toast('A boundary and Total are required.', 'error'); return; }
+  if (!b.Astar) b.Astar = b.A; // sensible default if A* not known
+  saveUserBoundary(currentSubject, currentPaperKey, currentYear, b);
+  currentBoundaries = b;
+  _renderBoundaryCard(b, currentSubject, currentPaperKey, currentYear, true);
+  document.getElementById('boundary-edit-form').style.display = 'none';
+  toast('Boundaries saved.', 'success');
 }
 
 // ═══════════════════════════════════════════════════
@@ -3261,6 +3407,54 @@ function _numWord(n) {
   return w[n] || String(n);
 }
 
+function calcSubjectProjectedGrade(sub) {
+  const db = getDB();
+  const recs = db.records.filter(r => r.subject === sub);
+  if (recs.length === 0) return null;
+
+  // All paper keys the user has attempted for this subject
+  const paperKeys = [...new Set(recs.map(r => r.paperKey))].sort();
+  const GRADE_ORDER = ['A*', 'A', 'B', 'C', 'D', 'E', 'U'];
+
+  const paperData = {};
+  let boundaryCount = 0;
+
+  paperKeys.forEach(pk => {
+    // Last 3 of this paper type, most recent first
+    const pkRecs = recs.filter(r => r.paperKey === pk).sort((a, b) => b.id - a.id).slice(0, 3);
+    if (pkRecs.length === 0) return;
+    const avgScored = pkRecs.reduce((s, r) => s + (r.totalScored || 0), 0) / pkRecs.length;
+    const avgAvail  = pkRecs.reduce((s, r) => s + (r.totalAvail  || 0), 0) / pkRecs.length;
+    const pct = avgAvail > 0 ? Math.round(avgScored / avgAvail * 100) : null;
+    const boundary = getTypicalBoundary(sub, pk);
+    if (boundary) boundaryCount++;
+    paperData[pk] = { avgScored, avgAvail, pct, boundary, count: pkRecs.length };
+  });
+
+  // Grade per paper type using typical boundaries
+  const grades = [];
+  Object.entries(paperData).forEach(([pk, d]) => {
+    if (d.boundary && d.avgScored != null) {
+      grades.push(projectGrade(d.avgScored, d.boundary));
+    } else if (d.pct != null) {
+      grades.push(_pctToGrade(d.pct));
+    }
+  });
+
+  let finalGrade = '—';
+  if (grades.length > 0) {
+    const nums = grades.map(g => GRADE_ORDER.indexOf(g)).filter(n => n >= 0);
+    const avgNum = Math.round(nums.reduce((a, b) => a + b, 0) / nums.length);
+    finalGrade = GRADE_ORDER[Math.min(avgNum, GRADE_ORDER.length - 1)];
+  }
+
+  const totalPapers = paperKeys.length;
+  const coveredPapers = Object.values(paperData).filter(d => d.count > 0).length;
+  const method = boundaryCount > 0 ? 'boundary' : 'pct';
+
+  return { grade: finalGrade, paperData, method, coveredPapers, totalPapers };
+}
+
 function getGreeting() {
   const h = new Date().getHours();
   if (h < 12) return 'Good morning';
@@ -3306,8 +3500,6 @@ function renderDashboard() {
 
   // ── Stat cards ────────────────────────────────────────
   const streak = calcStreak();
-  const rollingAvg = calcRollingAvg(10);
-  const projGrade = rollingAvg !== null ? _pctToGrade(rollingAvg) : null;
   const totalPapers = db.records.length;
   const subjects = getSelectedSubjects();
   const sortedDates = db.records.map(r => new Date(r.date)).sort((a,b) => a-b);
@@ -3316,7 +3508,6 @@ function renderDashboard() {
     : 1;
 
   const streakMsg = streak >= 14 ? 'Two-week streak.' : streak >= 7 ? 'Strong week.' : streak >= 3 ? 'Solid rhythm.' : streak >= 1 ? 'Keep it going.' : 'Start your streak today.';
-  const gradeMsg = rollingAvg !== null ? `${rollingAvg}% rolling avg. across last 10 papers.` : 'Log more papers to see your grade.';
 
   // Streak mini-calendar: last 14 days
   const dateSet = new Set(db.records.map(r => (r.date || '').split('T')[0]).filter(Boolean));
@@ -3329,20 +3520,12 @@ function renderDashboard() {
     streakDots += `<span class="streak-dot${active?' streak-dot-on':''}${isToday?' streak-dot-today':''}"></span>`;
   }
 
-  // Per-subject grade breakdown
-  let gradeBreakdown = '';
+  // Per-subject grade projection
+  const subjectGrades = {};
   subjects.forEach(sub => {
-    const recs = db.records.filter(r => r.subject === sub);
-    if (recs.length === 0) return;
-    const cat = SUBJECT_CATALOG[sub] || PAPERS[sub];
-    const color = cat?.color || '#888';
-    const name = (cat?.name || sub).split(' ')[0]; // first word only for brevity
-    const avg = Math.round(recs.reduce((s,r) => s + (r.totalAvail>0 ? r.totalScored/r.totalAvail*100 : 0),0)/recs.length);
-    const g = _pctToGrade(avg);
-    gradeBreakdown += `<span class="grade-mini-chip" style="border-color:${color}33">
-      <span style="color:${color};font-weight:600">${_esc(name)}</span>
-      <span style="color:${color}">${g}</span>
-    </span>`;
+    if (db.records.some(r => r.subject === sub)) {
+      subjectGrades[sub] = calcSubjectProjectedGrade(sub);
+    }
   });
 
   // Papers logged per subject
@@ -3368,18 +3551,57 @@ function renderDashboard() {
       <div class="streak-dots-row">${streakDots}</div>
     </div>
     <div class="stat-card">
-      <div class="stat-card-eyebrow">Projected Grade</div>
-      <div class="stat-card-big" style="color:var(--accent-m)">${projGrade || '—'}</div>
-      <div class="stat-card-label" style="margin-bottom:10px">${gradeMsg}</div>
-      <div class="grade-mini-row">${gradeBreakdown}</div>
-    </div>
-    <div class="stat-card">
       <div class="stat-card-eyebrow">Papers Logged</div>
       <div class="stat-card-big" style="color:var(--text)">${totalPapers}</div>
       <div class="stat-card-label" style="margin-bottom:10px">${paperTarget}</div>
       <div class="papers-mini-grid">${papersBySubj}</div>
     </div>
   </div>`;
+
+  // ── Per-subject projected grade cards ─────────────────
+  const gradeSubjects = subjects.filter(s => subjectGrades[s]);
+  if (gradeSubjects.length > 0) {
+    html += `<div class="proj-grade-row">`;
+    gradeSubjects.forEach(sub => {
+      const cat = SUBJECT_CATALOG[sub] || PAPERS[sub];
+      const color = cat?.color || '#888';
+      const subName = cat?.name || sub;
+      const sg = subjectGrades[sub];
+      const gradeColor = sg.grade === 'A*' || sg.grade === 'A' ? 'var(--green)'
+        : sg.grade === 'B' ? 'var(--accent-m)'
+        : sg.grade === 'C' ? 'var(--orange)' : 'var(--red)';
+
+      // Paper breakdown chips
+      let paperChips = '';
+      Object.entries(sg.paperData).forEach(([pk, d]) => {
+        const shortPk = pk.replace('Paper ', 'P');
+        const chipColor = d.pct >= 70 ? 'var(--green)' : d.pct >= 50 ? 'var(--orange)' : 'var(--red)';
+        paperChips += `<span class="proj-paper-chip">
+          <span style="font-family:var(--mono);font-size:9px;color:var(--text3)">${_esc(shortPk)}</span>
+          <span style="font-family:var(--mono);font-size:11px;color:${chipColor}">${d.pct !== null ? d.pct+'%' : '—'}</span>
+          <span style="font-family:var(--mono);font-size:9px;color:var(--text3)">${d.count} paper${d.count!==1?'s':''}</span>
+        </span>`;
+      });
+
+      const coverNote = sg.coveredPapers < sg.totalPapers
+        ? `<div style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:6px">${sg.coveredPapers}/${sg.totalPapers} paper types logged</div>`
+        : '';
+      const methodNote = sg.method === 'pct'
+        ? `<div style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:4px">est. from % (no boundaries)</div>`
+        : '';
+
+      html += `<div class="proj-grade-card" style="border-color:${color}33">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span class="subject-dot" style="background:${color}"></span>
+          <span style="font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:${color}">${_esc(subName)}</span>
+        </div>
+        <div style="font-family:var(--serif);font-size:52px;line-height:1;color:${gradeColor};margin-bottom:8px">${_esc(sg.grade)}</div>
+        <div class="proj-paper-chips">${paperChips}</div>
+        ${coverNote}${methodNote}
+      </div>`;
+    });
+    html += `</div>`;
+  }
 
   // ── Today's Pick ──────────────────────────────────────
   const weakest = getWeakestTopicData();
@@ -4876,7 +5098,11 @@ Q3
   a) [2] [Trigonometry]
   b) [6] [Trigonometry]
 
-Now extract the past paper I give you:`
+Now extract the past paper I give you:
+
+OPTIONAL — GRADE BOUNDARIES: If you know the official grade boundaries for this specific paper and year from your training data, add ONE line at the very end in this exact format (raw marks, not percentages):
+BOUNDARIES: A*=XX A=XX B=XX C=XX D=XX E=XX total=XX
+Only include this line if you are confident. Omit it entirely if unsure.`
   },
   physics: {
     label: 'OCR A Physics (H556)',
@@ -4905,7 +5131,11 @@ Q1
     ii) [2] [Forces in Action]
 Q2 [Waves] [5]
 
-Now extract the past paper I give you:`
+Now extract the past paper I give you:
+
+OPTIONAL — GRADE BOUNDARIES: If you know the official grade boundaries for this specific paper and year from your training data, add ONE line at the very end in this exact format (raw marks, not percentages):
+BOUNDARIES: A*=XX A=XX B=XX C=XX D=XX E=XX total=XX
+Only include this line if you are confident. Omit it entirely if unsure.`
   },
   cs: {
     label: 'OCR A Computer Science (H446)',
@@ -4936,7 +5166,11 @@ Q2
   b) [4] [Time & Space Complexity]
   c) [6] [Recursion]
 
-Now extract the past paper I give you:`
+Now extract the past paper I give you:
+
+OPTIONAL — GRADE BOUNDARIES: If you know the official grade boundaries for this specific paper and year from your training data, add ONE line at the very end in this exact format (raw marks, not percentages):
+BOUNDARIES: A*=XX A=XX B=XX C=XX D=XX E=XX total=XX
+Only include this line if you are confident. Omit it entirely if unsure.`
   },
   chemistry: {
     label: 'OCR A Chemistry (H432)',
@@ -5226,8 +5460,38 @@ function builderParseLLM() {
   switchBuilderTab('manual');
   renderBuilder();
 
+  // ── Extract optional BOUNDARIES line ─────────────────
+  let boundaryNote = '';
+  const boundaryLine = lines.find(l => /^BOUNDARIES\s*:/i.test(l.trim()));
+  if (boundaryLine && currentSubject && currentPaperKey && currentYear) {
+    const bm = {};
+    const pairs = boundaryLine.replace(/^BOUNDARIES\s*:\s*/i, '').split(/\s+/);
+    pairs.forEach(p => {
+      const [k, v] = p.split('=');
+      if (!k || !v) return;
+      const num = parseInt(v);
+      if (isNaN(num)) return;
+      const key = k.trim().toLowerCase();
+      if (key === 'a*' || key === 'astar') bm.Astar = num;
+      else if (key === 'a') bm.A = num;
+      else if (key === 'b') bm.B = num;
+      else if (key === 'c') bm.C = num;
+      else if (key === 'd') bm.D = num;
+      else if (key === 'e') bm.E = num;
+      else if (key === 'total') bm.total = num;
+    });
+    if (bm.A && bm.total) {
+      bm.source = 'llm-unverified';
+      if (!bm.Astar) bm.Astar = bm.A;
+      saveUserBoundary(currentSubject, currentPaperKey, currentYear, bm);
+      boundaryNote = ` · Boundaries extracted (⚠ unverified — check Edit button).`;
+      // Update the boundary card if it's visible
+      _renderBoundaryCard(bm, currentSubject, currentPaperKey, currentYear, true);
+    }
+  }
+
   const warn = missingTopics > 0 ? ` ⚠ ${missingTopics} part${missingTopics!==1?'s':''} missing topics — assign below.` : '';
-  if (msgEl) msgEl.textContent = `Parsed ${validState.length} question${validState.length!==1?'s':''}, ${leafCount} part${leafCount!==1?'s':''}, ${totalMarks} marks.${warn}`;
+  if (msgEl) msgEl.textContent = `Parsed ${validState.length} question${validState.length!==1?'s':''}, ${leafCount} part${leafCount!==1?'s':''}, ${totalMarks} marks.${warn}${boundaryNote}`;
   toast(`LLM output parsed — ${validState.length} questions loaded. Review topics in builder.`, 'success');
 }
 
