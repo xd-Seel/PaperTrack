@@ -1883,6 +1883,7 @@
   </div>
 </div>
 
+<script src="templates.js"></script>
 <script>
 // ═══════════════════════════════════════════════════
 //  PAPER DATA — Questions, topics, marks
@@ -1986,11 +1987,7 @@ const YEARS = {
 //  getTemplate() checks here before user-saved localStorage templates.
 //  Add entries via the admin panel (?admin=1) "Copy as code" button.
 // ═══════════════════════════════════════════════════
-const BAKED_TEMPLATES = {
-  maths: { 'Paper 1': {}, 'Paper 2': {}, 'Paper 3': {} },
-  physics: { 'Paper 1': {}, 'Paper 2': {}, 'Paper 3': {} },
-  cs: { 'Paper 1': {}, 'Paper 2': {} },
-};
+// BAKED_TEMPLATES is loaded from templates.js (script tag in <head>)
 
 // Grade boundary data — verified from official exam board documents
 // Edexcel Maths: notional component boundaries from Pearson grade boundary PDFs (9MA0, /100 per paper)
