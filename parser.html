@@ -11,7 +11,7 @@
     --accent:#c9900a; --green:#5fb85f; --red:#e26b6b; --blue:#4aa3df;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px}
+  body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px}
   h1{font-size:1.1rem;font-weight:600;margin-bottom:4px}
   .sub{color:var(--text2);font-size:.8rem;margin-bottom:16px}
   .bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
@@ -25,22 +25,26 @@
   .panel-title{font-size:.75rem;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;font-weight:600}
   textarea{flex:1;resize:vertical;min-height:55vh;font-family:'SF Mono',Menlo,monospace;font-size:.78rem;line-height:1.45}
   pre{flex:1;overflow:auto;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px;font-family:'SF Mono',Menlo,monospace;font-size:.74rem;line-height:1.5;white-space:pre;color:var(--text)}
-  .diag{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:.82rem}
+  .diag{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:.82rem;margin-bottom:10px}
   .diag h3{font-size:.75rem;color:var(--text2);text-transform:uppercase;margin-bottom:6px;font-weight:600;letter-spacing:.5px}
   .diag-row{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:6px}
   .stat{color:var(--text2)}
   .stat strong{color:var(--text);font-weight:600}
   .warn{color:var(--red);font-size:.78rem;margin-top:4px}
   .ok{color:var(--green)}
-  .warn-list{max-height:140px;overflow:auto;background:var(--surface2);border-radius:4px;padding:6px 10px;margin-top:6px;font-size:.76rem;font-family:'SF Mono',monospace}
+  .warn-list{max-height:160px;overflow:auto;background:var(--surface2);border-radius:4px;padding:6px 10px;margin-top:6px;font-size:.76rem;font-family:'SF Mono',monospace}
   .warn-list div{padding:2px 0;color:var(--text2)}
-  .warn-list .lo{color:var(--accent)}
+  .lo{color:var(--accent)!important}
+  .er{color:var(--red)!important}
   label{font-size:.78rem;color:var(--text2);display:flex;align-items:center;gap:6px}
+  details{margin-top:8px}
+  summary{cursor:pointer;font-size:.75rem;color:var(--text3)}
+  details pre{max-height:200px;overflow:auto;font-size:.7rem;margin-top:6px}
 </style>
 </head>
 <body>
 <h1>PaperTrack — Question Paper Parser</h1>
-<div class="sub">Paste raw QP PDF text → get a <code>BAKED_TEMPLATES</code> snippet. No LLM, fully deterministic.</div>
+<div class="sub">Paste raw QP PDF text → get a <code>BAKED_TEMPLATES</code> snippet. No LLM needed.</div>
 
 <div class="bar">
   <label>Subject <select id="subject"><option value="physics">Physics (OCR H556)</option><option value="maths">Maths (Edexcel 9MA0)</option><option value="cs">CS (OCR H446)</option></select></label>
@@ -54,10 +58,10 @@
 <div class="grid">
   <div class="panel">
     <div class="panel-title">Input — paste QP text</div>
-    <textarea id="input" placeholder="Paste the raw text copied from a question paper PDF here (CTRL+A → CTRL+C in the PDF, then CTRL+V here)."></textarea>
+    <textarea id="input" placeholder="Paste raw text copied from a QP PDF (CTRL+A → CTRL+C in PDF viewer, then CTRL+V here)."></textarea>
   </div>
   <div class="panel">
-    <div class="panel-title">Output — paste this into templates.js</div>
+    <div class="panel-title">Output — paste into templates.js</div>
     <pre id="output">// Output will appear here after pressing Parse →</pre>
   </div>
 </div>
@@ -66,98 +70,334 @@
   <h3>Diagnostics</h3>
   <div class="diag-row" id="stats"><span class="stat">Press Parse to see results</span></div>
   <div id="warns"></div>
+  <details id="debug-block" style="display:none">
+    <summary>Debug — parsed structure</summary>
+    <pre id="debug"></pre>
+  </details>
 </div>
 
 <script>
 // ═══════════════════════════════════════════════════════════════════
-// SUBJECT CONFIGS — topic keyword dictionaries
-// Each entry: [keyword, weight]. Higher weight = more diagnostic of topic.
-// Match is case-insensitive whole-word/phrase.
+// SUBJECT CONFIGS
+// Each topic maps to [[keyword, weight], ...]
+// Match is case-insensitive. Higher weight = more distinctive.
 // ═══════════════════════════════════════════════════════════════════
-
 const SUBJECTS = {
   physics: {
     paperKeys: ['Paper 1','Paper 2','Paper 3'],
     topics: {
-      'Practical Skills & Data Analysis': [['percentage uncertainty',5],['absolute uncertainty',5],['random error',4],['systematic error',4],['gradient',2],['y-intercept',3],['line of best fit',4],['log graph',4],['log-log',4],['plot a graph',3],['suitable scale',3],['error bars',5],['repeat readings',3],['anomalous',3],['precision',2],['accuracy',2],['significant figures',2],['resolution',2]],
-      'Quantities, Units & Measurements': [['si unit',4],['base unit',4],['homogeneous',3],['derived unit',4],['scalar',3],['vector',3],['resolve',2],['component',1],['order of magnitude',3],['estimate',1],['unit of',2]],
-      'Motion (Kinematics)': [['velocity',2],['acceleration',2],['displacement',2],['suvat',5],['projectile',4],['terminal velocity',4],['free fall',4],['equation of motion',4],['velocity-time',4],['displacement-time',4],['kinematic',4]],
-      'Forces in Action': [['drag',3],['friction',3],['normal contact',4],['upthrust',4],['equilibrium',3],['couple',4],['turning moment',4],['moment about',4],['centre of gravity',4],['centre of mass',3],['pressure',2],['stokes',4],['viscous',3],['free body diagram',4]],
-      'Work, Energy & Power': [['work done',4],['kinetic energy',4],['gravitational potential energy',4],['elastic potential',4],['conservation of energy',4],['efficiency',3],['power',2],['joule',2],['watt',2]],
-      'Materials': [['young modulus',5],['hooke',4],['stress',3],['strain',3],['elastic limit',4],['plastic deformation',4],['ductile',4],['brittle',4],['tensile',3],['ultimate tensile',4],['breaking stress',4],['yield point',4],['spring constant',4],['hooke\'s law',5]],
-      'Newton\'s Laws & Momentum': [['momentum',4],['impulse',4],['newton\'s first',4],['newton\'s second',4],['newton\'s third',4],['conservation of momentum',5],['elastic collision',4],['inelastic collision',4],['rate of change of momentum',5]],
-      'Thermal Physics': [['specific heat capacity',5],['specific latent heat',5],['internal energy',4],['absolute zero',4],['kelvin',2],['boltzmann',5],['ideal gas',4],['kinetic theory',5],['mean square speed',5],['root mean square',4],['mole',2],['avogadro',4],['gas law',4],['pv=nrt',5],['pressure law',3],['boyle',4],['charles',3],['brownian',4]],
-      'Circular Motion': [['centripetal',5],['angular velocity',5],['angular speed',4],['radian',3],['period of rotation',4],['orbital period',3]],
-      'Oscillations (SHM)': [['simple harmonic',5],['shm',5],['amplitude',3],['damping',4],['damped',4],['resonance',5],['resonant frequency',5],['natural frequency',4],['forced oscillation',5],['phase difference',2],['pendulum',3],['mass-spring',4]],
-      'Gravitational Fields': [['gravitational field',5],['gravitational potential',5],['newton\'s law of gravitation',5],['kepler',5],['satellite',3],['orbital radius',4],['escape velocity',4],['g = gm',4],['inverse square',2]],
-      'Astrophysics & Cosmology': [['hubble',5],['redshift',4],['doppler',3],['big bang',5],['cosmological',4],['standard candle',5],['cepheid',5],['stellar',3],['parallax',4],['parsec',5],['luminosity',4],['light year',3],['hr diagram',5],['hertzsprung',5],['main sequence',4],['white dwarf',4],['red giant',4],['supernova',4],['black hole',4],['stefan',4],['wien',5],['black body',4],['absorption spectra',4]],
-      'Charge & Current': [['coulomb',2],['drift velocity',5],['number density',4],['kirchhoff\'s first',4],['conservation of charge',4],['mean drift',4]],
-      'Energy, Power & Resistance': [['resistivity',5],['resistance',2],['ohm',2],['ohmic',4],['filament lamp',4],['thermistor',4],['ldr',4],['i-v characteristic',5],['potential difference',2],['emf',3]],
-      'Electrical Circuits': [['kirchhoff\'s second',5],['potential divider',5],['internal resistance',5],['series',2],['parallel',2],['terminal pd',4]],
-      'Waves': [['wavelength',3],['frequency',2],['amplitude',2],['transverse',3],['longitudinal',3],['polaris',4],['superposition',4],['interference',4],['diffraction',4],['standing wave',5],['stationary wave',5],['node',2],['antinode',3],['path difference',4],['coherent',3],['young\'s double slit',5],['double slit',4],['diffraction grating',5],['refraction',3],['snell',4],['critical angle',4],['total internal reflection',5],['refractive index',4],['ultrasound',3]],
-      'Quantum Physics': [['photon',4],['planck',4],['photoelectric',5],['work function',5],['threshold frequency',5],['de broglie',5],['wave-particle',5],['electron diffraction',5],['energy level',3],['discrete energy',3]],
-      'Capacitors': [['capacitor',5],['capacitance',5],['farad',4],['time constant',5],['charging',2],['discharging',3],['rc circuit',5],['dielectric',4]],
-      'Electric Fields': [['electric field strength',5],['electric potential',4],['point charge',4],['coulomb\'s law',5],['parallel plate',4],['equipotential',4]],
-      'Electromagnetism': [['magnetic flux density',5],['magnetic flux',4],['tesla',3],['weber',3],['solenoid',4],['faraday',5],['lenz',5],['induced emf',5],['flux linkage',5],['electromagnetic induction',5],['transformer',4],['fleming\'s left',5],['fleming\'s right',5],['cyclotron',4],['mass spectrometer',3]],
-      'Nuclear & Particle Physics': [['alpha particle',4],['beta particle',4],['gamma',3],['nucleon',3],['proton number',3],['nucleon number',3],['isotope',4],['half-life',5],['decay constant',5],['radioactive',4],['fission',5],['fusion',5],['binding energy',5],['mass defect',5],['quark',5],['hadron',5],['lepton',5],['baryon',5],['meson',5],['antiparticle',4],['neutrino',4],['beta-minus',4],['beta-plus',4]],
-      'Medical Imaging': [['x-ray',4],['ct scan',5],['mri',5],['nuclear magnetic resonance',4],['ultrasound scan',5],['piezoelectric',4],['acoustic impedance',5],['attenuation',4],['contrast medium',4],['tracer',3],['pet scan',5]],
+      'Practical Skills & Data Analysis': [
+        ['percentage uncertainty',5],['absolute uncertainty',5],['random error',4],['systematic error',4],
+        ['gradient of',3],['y-intercept',3],['line of best fit',4],['log-linear',4],['log graph',3],
+        ['plot a graph',3],['suitable scale',3],['error bar',5],['repeat reading',3],['anomalous',3],
+        ['significant figure',2],['resolution',2],['uncertainty in',4],['calibration',3]
+      ],
+      'Quantities, Units & Measurements': [
+        ['si unit',4],['base unit',4],['homogeneous',3],['derived unit',4],['order of magnitude',3],
+        ['unit of',2],['check the units',4],['dimension',2]
+      ],
+      'Motion (Kinematics)': [
+        ['velocity',2],['acceleration',2],['displacement',2],['suvat',5],['projectile',4],
+        ['terminal velocity',4],['free fall',4],['uniform acceleration',4],['velocity-time',4],
+        ['displacement-time',4],['kinematic',4],['deceleration',3],['retardation',3]
+      ],
+      'Forces in Action': [
+        ['drag',3],['friction',3],['normal contact',4],['upthrust',4],['equilibrium',3],
+        ['couple',4],['turning moment',4],['moment about',4],['centre of gravity',4],
+        ['pressure',2],['stokes',4],['viscous',3],['free body',4],['resultant force',3],['torque',3]
+      ],
+      'Work, Energy & Power': [
+        ['work done',4],['kinetic energy',4],['gravitational potential energy',4],['elastic potential energy',4],
+        ['conservation of energy',4],['efficiency',3],['joule',2],['watt',2],['power',2],['rate of doing work',4]
+      ],
+      'Materials': [
+        ['young modulus',5],['young\'s modulus',5],['hooke',4],['stress',3],['strain',3],
+        ['elastic limit',4],['plastic',3],['ductile',4],['brittle',4],['tensile',3],
+        ['ultimate tensile',4],['breaking stress',4],['yield',3],['spring constant',4],
+        ['force constant',4],['stiffness',3]
+      ],
+      'Newton\'s Laws & Momentum': [
+        ['momentum',4],['impulse',4],['newton\'s first',4],['newton\'s second',4],['newton\'s third',4],
+        ['conservation of momentum',5],['elastic collision',4],['inelastic collision',4],
+        ['rate of change of momentum',5],['collide',3],['collision',3]
+      ],
+      'Thermal Physics': [
+        ['specific heat capacity',5],['specific latent heat',5],['internal energy',4],
+        ['absolute zero',4],['kelvin',2],['boltzmann',5],['ideal gas',4],['kinetic theory',5],
+        ['mean square speed',5],['root mean square',4],['mole',2],['avogadro',4],['gas law',4],
+        ['pv=nrt',5],['pressure law',3],['boyle',4],['charles',3],['brownian',4],
+        ['mean kinetic energy',4],['temperature',2],['isothermal',4],['adiabatic',4]
+      ],
+      'Circular Motion': [
+        ['centripetal',5],['angular velocity',5],['angular speed',4],['radian',3],
+        ['period of rotation',4],['orbital period',3],['angular acceleration',4],['rpm',3]
+      ],
+      'Oscillations (SHM)': [
+        ['simple harmonic',5],['shm',5],['amplitude',3],['damping',4],['damped',4],
+        ['resonance',5],['resonant frequency',5],['natural frequency',4],['forced oscillation',5],
+        ['pendulum',3],['mass-spring',4],['free oscillation',4],['time period',3]
+      ],
+      'Gravitational Fields': [
+        ['gravitational field',5],['gravitational potential',5],['newton\'s law of gravitation',5],
+        ['kepler',5],['satellite',3],['orbital radius',4],['escape velocity',4],
+        ['geostationary',5],['g = gm/r',4],['inverse square',2]
+      ],
+      'Astrophysics & Cosmology': [
+        ['hubble',5],['redshift',4],['doppler',3],['big bang',5],['standard candle',5],
+        ['cepheid',5],['parallax',4],['parsec',5],['luminosity',4],['light year',3],
+        ['hertzsprung',5],['main sequence',4],['white dwarf',4],['red giant',4],
+        ['supernova',4],['black hole',4],['stefan',4],['wien',5],['black body',4],
+        ['absorption spectrum',4],['emission spectrum',4],['hr diagram',5]
+      ],
+      'Charge & Current': [
+        ['drift velocity',5],['number density',4],['kirchhoff\'s first',4],
+        ['conservation of charge',4],['coulomb',2],['charge carrier',4],['current',2]
+      ],
+      'Energy, Power & Resistance': [
+        ['resistivity',5],['resistance',2],['ohm',2],['ohmic',4],['filament lamp',4],
+        ['thermistor',4],['ldr',4],['i-v characteristic',5],['potential difference',2]
+      ],
+      'Electrical Circuits': [
+        ['kirchhoff\'s second',5],['potential divider',5],['internal resistance',5],
+        ['series circuit',3],['parallel circuit',3],['terminal pd',4],['emf',3]
+      ],
+      'Waves': [
+        ['wavelength',3],['frequency',2],['transverse',3],['longitudinal',3],
+        ['polarisation',4],['superposition',4],['interference',4],['diffraction',4],
+        ['standing wave',5],['stationary wave',5],['node',2],['antinode',3],
+        ['path difference',4],['coherent',3],['young\'s double slit',5],['double slit',4],
+        ['diffraction grating',5],['refraction',3],['snell',4],['critical angle',4],
+        ['total internal reflection',5],['refractive index',4]
+      ],
+      'Quantum Physics': [
+        ['photon',4],['planck',4],['photoelectric',5],['work function',5],
+        ['threshold frequency',5],['de broglie',5],['wave-particle',5],
+        ['electron diffraction',5],['energy level',3],['discrete energy',3]
+      ],
+      'Capacitors': [
+        ['capacitor',5],['capacitance',5],['farad',4],['time constant',5],
+        ['charging',2],['discharging',3],['rc circuit',5],['dielectric',4]
+      ],
+      'Electric Fields': [
+        ['electric field strength',5],['electric potential',4],['point charge',4],
+        ['coulomb\'s law',5],['parallel plate',4],['equipotential',4],['permittivity',4]
+      ],
+      'Electromagnetism': [
+        ['magnetic flux density',5],['magnetic flux',4],['tesla',3],['solenoid',4],
+        ['faraday',5],['lenz',5],['induced emf',5],['flux linkage',5],
+        ['electromagnetic induction',5],['transformer',4],['fleming',5],['cyclotron',4]
+      ],
+      'Nuclear & Particle Physics': [
+        ['alpha particle',4],['beta particle',4],['gamma ray',3],['nucleon',3],
+        ['proton number',3],['nucleon number',3],['isotope',4],['half-life',5],
+        ['decay constant',5],['radioactive decay',4],['fission',5],['fusion',5],
+        ['binding energy',5],['mass defect',5],['quark',5],['hadron',5],
+        ['lepton',5],['baryon',5],['meson',5],['antiparticle',4],['neutrino',4]
+      ],
+      'Medical Imaging': [
+        ['x-ray imaging',4],['ct scan',5],['mri',5],['nuclear magnetic resonance',4],
+        ['ultrasound scan',5],['piezoelectric',4],['acoustic impedance',5],
+        ['attenuation',4],['contrast medium',4],['pet scan',5]
+      ],
     }
   },
 
   maths: {
     paperKeys: ['Paper 1','Paper 2','Paper 3'],
     topics: {
-      'Proof': [['prove',3],['proof by contradiction',5],['disprove',4],['counter-example',5],['show that',1]],
-      'Algebra & Functions': [['quadratic',3],['discriminant',4],['inequality',3],['polynomial',3],['factor theorem',5],['remainder theorem',5],['partial fraction',5],['modulus function',5],['composite function',4],['inverse function',4],['domain',3],['range',3],['transformation of graph',4],['simultaneous equation',3],['surd',3],['rationalise',3]],
-      'Coordinate Geometry': [['perpendicular',3],['parallel lines',3],['midpoint',3],['gradient',2],['circle equation',4],['centre and radius',4],['tangent to circle',4],['parametric equation',5],['locus',3]],
-      'Sequences & Series': [['arithmetic sequence',5],['geometric sequence',5],['common difference',5],['common ratio',5],['sum to infinity',5],['sigma notation',4],['recurrence relation',5],['binomial expansion',5],['binomial theorem',5]],
-      'Trigonometry': [['sin',2],['cos',2],['tan',2],['radian',3],['arc length',4],['sector',4],['sine rule',5],['cosine rule',5],['identity',2],['cosec',4],['sec',3],['cot',4],['double angle',5],['compound angle',5],['r sin',4],['harmonic form',4]],
-      'Exponentials & Logarithms': [['exponential',4],['logarithm',5],['log_',3],['ln',2],['e^x',3],['exponential growth',4],['exponential decay',4],['natural log',4],['log graph',4]],
-      'Differentiation': [['differentiate',5],['derivative',5],['dy/dx',5],['stationary point',5],['turning point',4],['point of inflection',5],['second derivative',5],['chain rule',5],['product rule',5],['quotient rule',5],['implicit differentiation',5],['parametric differentiation',5],['rate of change',3]],
-      'Integration': [['integrate',5],['integral',5],['area under',4],['area enclosed',4],['definite integral',5],['indefinite integral',5],['integration by parts',5],['integration by substitution',5],['trapezium rule',4],['volume of revolution',5]],
-      'Numerical Methods': [['iteration',4],['newton-raphson',5],['fixed point iteration',5],['change of sign',4],['staircase diagram',5],['cobweb',5]],
-      'Vectors': [['vector',3],['unit vector',4],['scalar product',5],['dot product',5],['magnitude of vector',5],['position vector',5],['parallel vectors',4],['collinear',4],['i j k',3]],
-      'Statistical Sampling': [['sample',3],['population',3],['simple random sample',5],['stratified',5],['systematic sample',5],['opportunity sample',5],['quota sample',4]],
-      'Data Presentation & Interpretation': [['mean',2],['median',2],['mode',2],['quartile',4],['interquartile',5],['standard deviation',4],['variance',4],['box plot',5],['histogram',4],['cumulative frequency',5],['outlier',4],['skewness',4],['correlation',3],['pmcc',5],['regression line',5]],
-      'Probability': [['probability',3],['mutually exclusive',5],['independent events',5],['conditional probability',5],['venn diagram',5],['tree diagram',4],['p(a|b)',5],['p(a and b)',4],['p(a or b)',4]],
-      'Statistical Distributions': [['binomial distribution',5],['normal distribution',5],['b(n,p)',5],['n(',2],['standardise',4],['z-value',4],['continuity correction',5],['poisson',5]],
-      'Hypothesis Testing': [['hypothesis test',5],['null hypothesis',5],['alternative hypothesis',5],['significance level',5],['p-value',5],['critical value',5],['one-tailed',5],['two-tailed',5],['type i error',5],['accept h0',4],['reject h0',4]],
-      'Kinematics (Mechanics)': [['suvat',5],['velocity-time graph',4],['displacement-time',4],['projectile',5],['uniform acceleration',4],['variable acceleration',5]],
-      'Forces & Newton\'s Laws': [['friction',4],['coefficient of friction',5],['inclined plane',5],['connected particles',5],['pulley',4],['tension',3],['newton\'s second law',5],['equilibrium of forces',4]],
-      'Moments': [['moment',3],['turning effect',4],['centre of mass',4],['pivot',3],['uniform rod',4],['ladder',4]],
+      'Proof': [['prove that',3],['proof by contradiction',5],['disprove',4],['counter-example',5],['show that',1]],
+      'Algebra & Functions': [
+        ['quadratic',3],['discriminant',4],['inequality',3],['polynomial',3],
+        ['factor theorem',5],['remainder theorem',5],['partial fraction',5],
+        ['modulus function',5],['composite function',4],['inverse function',4],
+        ['domain',3],['range',3],['graph transformation',4],['surd',3],['rationalise',3],
+        ['simplify',1],['expand',2],['factorise',3]
+      ],
+      'Coordinate Geometry': [
+        ['perpendicular bisector',4],['midpoint',3],['gradient',2],
+        ['circle equation',4],['centre and radius',4],['tangent to circle',4],
+        ['parametric equation',5],['locus',3],['chord',3]
+      ],
+      'Sequences & Series': [
+        ['arithmetic sequence',5],['geometric sequence',5],['common difference',5],
+        ['common ratio',5],['sum to infinity',5],['sigma notation',4],
+        ['recurrence relation',5],['binomial expansion',5],['binomial theorem',5],
+        ['nth term',4]
+      ],
+      'Trigonometry': [
+        ['sine rule',5],['cosine rule',5],['cosec',4],['sec',3],['cot',4],
+        ['double angle formula',5],['compound angle',5],['r sin',4],['r cos',4],
+        ['harmonic form',4],['arc length',4],['sector area',4],['radian',3],
+        ['trigonometric identity',4],['solve for',2]
+      ],
+      'Exponentials & Logarithms': [
+        ['exponential',4],['logarithm',5],['ln',2],['natural log',4],
+        ['exponential growth',4],['exponential decay',4],['log graph',4],['e^',3]
+      ],
+      'Differentiation': [
+        ['differentiate',5],['derivative',5],['dy/dx',5],['stationary point',5],
+        ['turning point',4],['point of inflection',5],['second derivative',5],
+        ['chain rule',5],['product rule',5],['quotient rule',5],
+        ['implicit differentiation',5],['parametric differentiation',5],
+        ['rate of change',3],['increasing function',4],['decreasing function',4]
+      ],
+      'Integration': [
+        ['integrate',5],['integral',5],['area under',4],['area enclosed',4],
+        ['definite integral',5],['integration by parts',5],['integration by substitution',5],
+        ['trapezium rule',4],['volume of revolution',5]
+      ],
+      'Numerical Methods': [
+        ['iteration',4],['newton-raphson',5],['fixed point',5],['change of sign',4],
+        ['staircase diagram',5],['cobweb diagram',5]
+      ],
+      'Vectors': [
+        ['position vector',5],['unit vector',4],['scalar product',5],['dot product',5],
+        ['magnitude of',3],['parallel vectors',4],['collinear',4],['perpendicular vectors',4]
+      ],
+      'Statistical Sampling': [
+        ['simple random sample',5],['stratified sample',5],['systematic sample',5],
+        ['opportunity sample',5],['quota sample',4],['census',3],['sampling method',4]
+      ],
+      'Data Presentation & Interpretation': [
+        ['standard deviation',4],['variance',4],['box plot',5],['histogram',4],
+        ['cumulative frequency',5],['outlier',4],['skewness',4],
+        ['pmcc',5],['product moment',5],['regression line',5],['least squares',4],
+        ['interquartile range',5],['mean',2],['median',2]
+      ],
+      'Probability': [
+        ['mutually exclusive',5],['independent events',5],['conditional probability',5],
+        ['venn diagram',5],['tree diagram',4],['p(a|b)',5],['p(a∩b)',4],['p(a∪b)',4]
+      ],
+      'Statistical Distributions': [
+        ['binomial distribution',5],['normal distribution',5],['b(n,p)',5],
+        ['standardise',4],['z-value',4],['continuity correction',5],['poisson distribution',5]
+      ],
+      'Hypothesis Testing': [
+        ['null hypothesis',5],['alternative hypothesis',5],['significance level',5],
+        ['p-value',5],['critical value',5],['one-tailed',5],['two-tailed',5],
+        ['type i error',5],['reject h0',4],['accept h0',4],['critical region',5]
+      ],
+      'Kinematics (Mechanics)': [
+        ['suvat',5],['velocity-time graph',4],['projectile',5],['variable acceleration',5],
+        ['displacement-time',4],['uniform acceleration',4]
+      ],
+      'Forces & Newton\'s Laws': [
+        ['coefficient of friction',5],['inclined plane',5],['connected particles',5],
+        ['pulley',4],['tension',3],['resolve forces',4],['equilibrium',3],['normal reaction',4]
+      ],
+      'Moments': [
+        ['moment of',3],['turning effect',4],['centre of mass',4],['pivot',3],
+        ['uniform rod',4],['ladder problem',4],['uniform beam',4]
+      ],
     }
   },
 
   cs: {
     paperKeys: ['Paper 1','Paper 2'],
     topics: {
-      'CPU Architecture & the Fetch-Decode-Execute Cycle': [['fetch decode execute',5],['fetch-decode-execute',5],['program counter',5],['memory address register',5],['memory data register',5],['mar',3],['mdr',3],['accumulator',5],['alu',4],['cir',3],['current instruction register',5],['pipelining',5],['von neumann',5],['harvard',4],['risc',5],['cisc',5],['clock speed',4],['cache memory',4],['cores',3],['fde',4]],
-      'Memory & Storage': [['ram',3],['rom',3],['virtual memory',5],['flash memory',4],['magnetic storage',4],['optical storage',4],['solid state',4],['ssd',3],['hard disk',3],['cache',3],['paging',4]],
-      'Input, Output & Storage Devices': [['input device',4],['output device',4],['barcode',4],['laser printer',4],['inkjet',3],['scanner',3]],
-      'Operating Systems': [['operating system',4],['scheduling',4],['round robin',5],['multitasking',4],['interrupt',4],['device driver',5],['kernel',4],['utility software',4],['memory management',4],['process',2],['thread',3]],
-      'System Software & Software Development': [['compiler',5],['interpreter',5],['assembler',5],['linker',5],['loader',5],['lexical analysis',5],['syntax analysis',5],['code generation',5],['optimisation',4],['intermediate code',5],['bytecode',5]],
-      'Data Representation': [['binary',3],['hexadecimal',4],['two\'s complement',5],['sign and magnitude',5],['floating point',5],['mantissa',5],['exponent',4],['normalisation',5],['ascii',4],['unicode',4],['bitmap',4],['vector graphic',4],['lossy',4],['lossless',4],['huffman',5],['run length encoding',5],['rle',5]],
-      'Data Structures (Arrays, Stacks, Queues, Linked Lists)': [['array',3],['stack',3],['queue',3],['linked list',5],['pointer',3],['push',3],['pop',3],['enqueue',5],['dequeue',5],['fifo',4],['lifo',4],['circular queue',5],['priority queue',5],['hash table',5],['record',3]],
-      'Databases & SQL': [['sql',4],['select',2],['from',1],['where',2],['insert into',4],['update',2],['delete from',4],['primary key',5],['foreign key',5],['normalisation',4],['1nf',5],['2nf',5],['3nf',5],['referential integrity',5],['indexing',4],['transaction',3],['acid',4],['relational database',5]],
-      'Networks & Communication Protocols': [['tcp/ip',5],['osi model',5],['packet',3],['protocol',3],['lan',3],['wan',3],['ip address',4],['mac address',4],['dns',4],['router',3],['switch',2],['firewall',4],['encryption',3],['ssl',4],['tls',4],['client server',4],['peer to peer',5],['handshake',4]],
-      'Web Technologies & The Internet': [['html',4],['css',4],['javascript',3],['url',3],['domain name',4],['web server',4],['client side',4],['server side',4],['cookie',3],['cache',2],['search engine',4],['pagerank',5]],
-      'Functional Programming': [['functional programming',5],['immutable',5],['first class function',5],['higher order function',5],['map filter reduce',5],['lambda',4],['lambda calculus',5],['function composition',5],['pure function',5]],
-      'Object-Oriented Programming': [['object oriented',5],['oop',4],['class',2],['object',2],['encapsulation',5],['inheritance',5],['polymorphism',5],['abstraction',3],['method',2],['attribute',3],['instance',3],['constructor',4],['private',2],['public',2],['protected',3]],
-      'Legal, Moral & Ethical Issues': [['computer misuse act',5],['data protection act',5],['copyright',4],['gdpr',5],['ethical',3],['privacy',3],['regulation of investigatory',5],['freedom of information',5]],
-      'Computational Thinking & Problem Solving': [['decomposition',4],['abstraction',3],['pattern recognition',5],['algorithmic thinking',5],['top-down',4],['stepwise',4]],
-      'Searching Algorithms': [['linear search',5],['binary search',5],['search algorithm',4]],
-      'Sorting Algorithms': [['bubble sort',5],['insertion sort',5],['merge sort',5],['quick sort',5],['quicksort',5],['mergesort',5],['sort algorithm',4]],
-      'Graph & Tree Algorithms': [['dijkstra',5],['a* algorithm',5],['a-star',5],['breadth first',5],['depth first',5],['bfs',5],['dfs',5],['binary tree',5],['tree traversal',5],['in-order',5],['pre-order',5],['post-order',5],['graph',2]],
-      'Time & Space Complexity': [['big o',5],['o(n)',5],['o(log n)',5],['o(n^2)',5],['o(n log n)',5],['time complexity',5],['space complexity',5]],
-      'Recursion': [['recursive',5],['recursion',5],['base case',5],['stack frame',5],['call stack',5]],
-      'Programming Techniques': [['procedure',3],['function',2],['parameter',3],['local variable',4],['global variable',4],['if then else',3],['for loop',3],['while loop',3],['array',2],['string handling',4],['file handling',4],['exception',4],['try catch',5]],
-      'Pattern Recognition & Abstraction': [['pattern',2],['generalisation',4],['model',2],['abstract data type',5],['adt',4]],
+      'CPU Architecture & the Fetch-Decode-Execute Cycle': [
+        ['fetch decode execute',5],['program counter',5],['memory address register',5],
+        ['memory data register',5],['accumulator',5],['alu',4],['control unit',4],
+        ['pipelining',5],['von neumann',5],['harvard architecture',4],
+        ['risc',5],['cisc',5],['clock speed',4],['cache',3],['cores',3]
+      ],
+      'Memory & Storage': [
+        ['ram',3],['rom',3],['virtual memory',5],['flash memory',4],
+        ['magnetic storage',4],['optical storage',4],['solid state drive',4],
+        ['hard disk',3],['paging',4],['cache memory',4]
+      ],
+      'Input, Output & Storage Devices': [
+        ['input device',4],['output device',4],['barcode scanner',4],
+        ['laser printer',4],['inkjet printer',4]
+      ],
+      'Operating Systems': [
+        ['operating system',4],['scheduling',4],['round robin',5],
+        ['multitasking',4],['interrupt',4],['device driver',5],
+        ['kernel',4],['memory management',4],['deadlock',5],['semaphore',5]
+      ],
+      'System Software & Software Development': [
+        ['compiler',5],['interpreter',5],['assembler',5],['linker',5],['loader',5],
+        ['lexical analysis',5],['syntax analysis',5],['code generation',5],
+        ['bytecode',5],['just in time',5]
+      ],
+      'Data Representation': [
+        ['binary',3],['hexadecimal',4],['two\'s complement',5],['sign and magnitude',5],
+        ['floating point',5],['mantissa',5],['exponent',4],['normalisation',5],
+        ['ascii',4],['unicode',4],['bitmap',4],['vector graphic',4],
+        ['lossy compression',4],['lossless compression',4],['huffman coding',5],
+        ['run length encoding',5]
+      ],
+      'Data Structures (Arrays, Stacks, Queues, Linked Lists)': [
+        ['stack',3],['queue',3],['linked list',5],['pointer',3],
+        ['push',3],['pop',3],['enqueue',5],['dequeue',5],
+        ['circular queue',5],['priority queue',5],['hash table',5],
+        ['two-dimensional array',4],['record',3]
+      ],
+      'Databases & SQL': [
+        ['sql',4],['select from',4],['where clause',4],['primary key',5],
+        ['foreign key',5],['normalisation',4],['first normal form',5],['second normal form',5],
+        ['third normal form',5],['referential integrity',5],['entity relationship',5],
+        ['relational database',5],['acid',4],['transaction',3]
+      ],
+      'Networks & Communication Protocols': [
+        ['tcp/ip',5],['osi model',5],['packet switching',5],['protocol',3],
+        ['lan',3],['wan',3],['ip address',4],['mac address',4],['dns',4],
+        ['router',3],['switch',2],['firewall',4],['encryption',3],
+        ['ssl',4],['tls',4],['client server',4],['peer to peer',5]
+      ],
+      'Web Technologies & The Internet': [
+        ['html',4],['css',4],['javascript',3],['domain name',4],
+        ['web server',4],['client side scripting',4],['server side scripting',4],
+        ['search engine',4],['pagerank',5],['url',3]
+      ],
+      'Functional Programming': [
+        ['functional programming',5],['immutable',5],['first class function',5],
+        ['higher order function',5],['map filter fold',5],['lambda',4],['closure',4],
+        ['pure function',5],['function composition',5]
+      ],
+      'Object-Oriented Programming': [
+        ['object oriented',5],['encapsulation',5],['inheritance',5],
+        ['polymorphism',5],['class definition',4],['instantiation',4],
+        ['method',2],['attribute',3],['constructor',4],['overriding',4],['overloading',4]
+      ],
+      'Legal, Moral & Ethical Issues': [
+        ['computer misuse act',5],['data protection act',5],['copyright',4],
+        ['gdpr',5],['privacy',3],['freedom of information act',5]
+      ],
+      'Computational Thinking & Problem Solving': [
+        ['decomposition',4],['abstraction',3],['pattern recognition',5],
+        ['algorithmic thinking',5],['top-down design',4]
+      ],
+      'Searching Algorithms': [['linear search',5],['binary search',5]],
+      'Sorting Algorithms': [
+        ['bubble sort',5],['insertion sort',5],['merge sort',5],['quick sort',5]
+      ],
+      'Graph & Tree Algorithms': [
+        ['dijkstra',5],['a* algorithm',5],['breadth first search',5],['depth first search',5],
+        ['binary tree',5],['tree traversal',5],['in-order traversal',5],
+        ['pre-order traversal',5],['post-order traversal',5]
+      ],
+      'Time & Space Complexity': [
+        ['big o notation',5],['o(n)',5],['o(log n)',5],['o(n^2)',5],
+        ['time complexity',5],['space complexity',5]
+      ],
+      'Recursion': [
+        ['recursive',5],['recursion',5],['base case',5],['stack frame',5],['call stack',5]
+      ],
+      'Programming Techniques': [
+        ['local variable',4],['global variable',4],['parameter passing',4],
+        ['string handling',4],['file handling',4],['exception handling',4],
+        ['try catch',5],['subroutine',3]
+      ],
+      'Pattern Recognition & Abstraction': [
+        ['abstract data type',5],['generalisation',4],['pattern recognition',4]
+      ],
     }
-  },
+  }
 };
 
 // ═══════════════════════════════════════════════════════════════════
-// Populate paper dropdown from subject
+// UI helpers
 // ═══════════════════════════════════════════════════════════════════
 function refreshPaperDropdown() {
   const sub = document.getElementById('subject').value;
@@ -168,275 +408,302 @@ document.getElementById('subject').addEventListener('change', refreshPaperDropdo
 refreshPaperDropdown();
 
 // ═══════════════════════════════════════════════════════════════════
-// CLEANING — strip page furniture from copied PDF text
+// STEP 1: CLEAN — strip page furniture
 // ═══════════════════════════════════════════════════════════════════
 function cleanText(t) {
   return t
-    .replace(/\r\n/g, '\n')
-    // PMTEducation watermarks
+    .replace(/\r\n/g, '\n').replace(/\r/g, '\n')
     .replace(/PMTEducation/gi, '')
     .replace(/www\.pmt\.education/gi, '')
-    // Copyright lines
-    .replace(/© ?(OCR|Pearson|Pearson Education|Edexcel)[^\n]*/gi, '')
-    .replace(/Copyright © [^\n]*/gi, '')
-    // Page navigation
-    .replace(/\bTurn over\s*►?/gi, '')
+    .replace(/© ?(OCR|Pearson|Edexcel|Pearson Education)[^\n]*/gi, '')
+    .replace(/Copyright ©[^\n]*/gi, '')
+    .replace(/\bTurn over\s*[►▶→]?/gi, '')
     .replace(/\bBLANK PAGE\b/gi, '')
     .replace(/\bEND OF (QUESTION )?PAPER\b/gi, '')
-    .replace(/^\s*Section [AB]\s*$/gmi, '')
-    // Instruction blocks
-    .replace(/INSTRUCTIONS TO CANDIDATES[\s\S]*?(?=\n\s*\d+\s)/i, '')
-    .replace(/INFORMATION FOR CANDIDATES[\s\S]*?(?=\n\s*\d+\s)/i, '')
-    .replace(/Do not write outside the box[^\n]*/gi, '')
-    // Long dotted answer spaces (replace with single newline)
-    .replace(/\.{4,}/g, '')
-    .replace(/_{4,}/g, '')
-    // Paper codes
-    .replace(/\b[A-Z]\d{3}\/0\d\b/g, '')
-    // Standalone page numbers (line containing just a number 1-30)
-    .replace(/^\s*\d{1,2}\s*$/gm, '')
-    // Collapse 3+ blank lines to 2
+    .replace(/Do not write outside[^\n]*/gi, '')
+    .replace(/Do not write in [^\n]*/gi, '')
+    .replace(/Answer on the dotted lines?[^\n]*/gi, '')
+    .replace(/\.{5,}/g, ' ')   // dotted answer lines
+    .replace(/_{5,}/g, ' ')    // underline answer lines
+    .replace(/\b[A-Z]\d{3}\/0\d\b/g, '')  // paper codes e.g. H556/01
+    .replace(/^\s*\d{1,2}\s*$/gm, '')     // standalone page numbers
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// PARSING — extract questions, parts, marks
+// STEP 2: TOKENISE — classify every line
+// Returns array of tokens: {type, n?, label?, kind?, indent, raw, text}
 // ═══════════════════════════════════════════════════════════════════
-
-// Roman numerals i..xii
 const ROMANS = ['i','ii','iii','iv','v','vi','vii','viii','ix','x','xi','xii'];
 const ROMAN_SET = new Set(ROMANS);
 
-function isRoman(s) { return ROMAN_SET.has(s.toLowerCase()); }
-function isArabic(s) { return /^[1-9]\d?$/.test(s); }
-function isLetter(s) { return /^[a-z]$/i.test(s); }
-
-// Find part markers in a line.
-// Matches: (a) | a) | (i) | (ii) | (1) at start (after optional whitespace).
-// Returns {label, kind, rest} or null.
-function detectPartMarker(line) {
-  // (a), (i), (1) — parenthesised
-  let m = line.match(/^\s*\(([a-z]{1,5}|\d{1,2})\)\s*(.*)$/i);
-  if (!m) {
-    // a), i), 1) — close-paren only
-    m = line.match(/^\s*([a-z]|i{1,3}|iv|v|vi{0,3}|ix|x)\)\s*(.*)$/i);
-  }
-  if (!m) return null;
-  const tok = m[1].toLowerCase();
-  let kind;
-  if (isRoman(tok)) kind = 'roman';
-  else if (isLetter(tok)) kind = 'letter';
-  else if (isArabic(tok)) kind = 'arabic';
-  else return null;
-  return { label: tok, kind, rest: m[2] };
-}
-
-// Detect a top-level question start: "16" or "16 " at start of line.
-function detectQuestion(line) {
-  const m = line.match(/^\s*(\d{1,2})\s+(.+)$/);
-  if (!m) return null;
-  const n = parseInt(m[1], 10);
-  if (n < 1 || n > 30) return null;
-  return { n, rest: m[2] };
-}
-
-// Extract mark count from a chunk of text. Looks for last [N] or (N) pattern.
-function extractMarks(chunk) {
-  // Prefer bracketed marks at end: [3] or [Total: 3 marks] or (3)
-  const matches = [...chunk.matchAll(/\[(\d{1,2})\]|\((\d{1,2})\s*marks?\)|\[Total\s*[:=]?\s*(\d{1,2})\s*(?:marks?)?\]/gi)];
-  if (matches.length === 0) return null;
-  const last = matches[matches.length - 1];
-  return parseInt(last[1] || last[2] || last[3], 10);
-}
-
-// State machine: walk lines, build questions[].parts[].
-function parsePaper(text) {
+function tokenise(text) {
   const lines = text.split('\n');
-  const questions = [];
-  let curQ = null;
-  // stack: each entry is {label, kind, text:[]}
-  let stack = [];
-  // Buffer: lines that belong to the current "active" entity (question stem or deepest part)
-  let buf = [];
+  const tokens = [];
 
-  function flushBufToActive() {
-    if (!curQ) { buf = []; return; }
-    if (stack.length === 0) {
-      // belongs to question stem
-      curQ.stem.push(...buf);
-    } else {
-      stack[stack.length - 1].text.push(...buf);
-    }
-    buf = [];
-  }
-
-  function emitLeavesForQuestion(q) {
-    // Walk the recorded parts tree. If a node has no children, it's a leaf.
-    // We stored everything flat in q.partsFlat with depth info; rebuild leaves.
-    if (q.partsFlat.length === 0) {
-      // Whole question is one leaf
-      const marks = extractMarks(q.stem.join('\n')) || 0;
-      q.leafParts = [{ label: '', text: q.stem.join('\n'), marks }];
-      return;
-    }
-    // Mark as leaf any part that has no child in the flat list following it at deeper depth before another sibling/shallower
-    q.leafParts = [];
-    for (let i = 0; i < q.partsFlat.length; i++) {
-      const cur = q.partsFlat[i];
-      const next = q.partsFlat[i+1];
-      const isLeaf = !next || next.depth <= cur.depth;
-      if (isLeaf) {
-        const labelParts = [];
-        // Reconstruct full label from ancestor stack at this point
-        const ancestors = [];
-        for (let j = i; j >= 0; j--) {
-          const p = q.partsFlat[j];
-          if (ancestors.length === 0 || p.depth < ancestors[ancestors.length-1].depth) {
-            ancestors.push(p);
-            if (p.depth === 0) break;
-          }
-        }
-        ancestors.reverse();
-        const label = ancestors.map(a => a.label).join(' ');
-        const marks = extractMarks(cur.text) || 0;
-        q.leafParts.push({ label, text: cur.text, marks, ancestors });
-      }
-    }
-  }
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const trimmed = line.trim();
+  for (const raw of lines) {
+    const trimmed = raw.trim();
     if (!trimmed) continue;
 
-    // New question?
-    const qMatch = detectQuestion(line);
-    // Only treat as new question if not already inside a part AND number sequential or first
-    if (qMatch && (
-      !curQ ||
-      (qMatch.n === (curQ.n + 1)) ||
-      (!curQ && qMatch.n <= 30)
-    )) {
-      // Only accept if line doesn't also look like a part marker continuation
-      flushBufToActive();
-      if (curQ) {
-        // Convert curQ's recorded structure into leaves
-        emitLeavesForQuestion(curQ);
-        questions.push(curQ);
+    // Count leading spaces as indent level proxy
+    const indent = raw.match(/^(\s*)/)[1].length;
+
+    // ── Question number: "16" or "16 text..." at start of line with low indent
+    // Require low indent (≤ 4 spaces) to avoid matching indented content
+    if (indent <= 4) {
+      const mq = raw.match(/^\s*(\d{1,2})\s*(.*)$/);
+      if (mq) {
+        const n = parseInt(mq[1], 10);
+        if (n >= 1 && n <= 30) {
+          const rest = mq[2].trim();
+          tokens.push({ type: 'Q', n, rest, indent, raw });
+          // If rest itself starts with a part marker e.g. "(a) text [2]", emit a synthetic PART
+          const rpart = rest.match(/^\(([a-zA-Z]{1,5}|\d{1,2})\)\s*(.*)$/);
+          if (rpart) {
+            const lab = rpart[1].toLowerCase();
+            let kind;
+            if (ROMAN_SET.has(lab)) kind = 'roman';
+            else if (/^[a-z]$/.test(lab)) kind = 'letter';
+            else if (/^\d{1,2}$/.test(lab)) kind = 'arabic';
+            if (kind) tokens.push({ type: 'PART', label: lab, kind, rest: rpart[2].trim(), indent, raw: rest });
+          }
+          continue;
+        }
       }
-      curQ = { n: qMatch.n, stem: [], partsFlat: [] };
-      buf = [qMatch.rest];
-      stack = [];
+    }
+
+    // ── Part marker: (a), (b), (i), (ii), (1) — any indent
+    const mpart = trimmed.match(/^\(([a-zA-Z]{1,5}|\d{1,2})\)\s*(.*)$/);
+    if (mpart) {
+      const lab = mpart[1].toLowerCase();
+      let kind;
+      if (ROMAN_SET.has(lab)) kind = 'roman';
+      else if (/^[a-z]$/.test(lab)) kind = 'letter';
+      else if (/^\d{1,2}$/.test(lab)) kind = 'arabic';
+      if (kind) {
+        tokens.push({ type: 'PART', label: lab, kind, rest: mpart[2].trim(), indent, raw });
+        continue;
+      }
+    }
+
+    // ── Mark line: just [N] or (N marks) alone or at end
+    // Capture this as content — don't make it its own token type
+
+    tokens.push({ type: 'TEXT', text: trimmed, indent, raw });
+  }
+  return tokens;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// STEP 3: SEGMENT — group tokens into question → part chunks
+// Strategy: walk tokens, maintain current Q and a part-label stack.
+// Each leaf segment is {qn, label, depth, text[]}.
+// ═══════════════════════════════════════════════════════════════════
+function segment(tokens) {
+  const segments = [];  // flat list of {qn, label, text[]}
+  let curQn = null;
+  // stack of {label, kind, depth}
+  let partStack = [];
+
+  function currentLabel() {
+    return partStack.map(p => p.label).join(' ');
+  }
+
+  function depthFor(kind) {
+    if (kind === 'letter') return 0;
+    if (kind === 'roman') return 1;
+    if (kind === 'arabic') return 2;
+    return 0;
+  }
+
+  function openSeg(qn, label) {
+    segments.push({ qn, label, text: [] });
+  }
+
+  function curSeg() {
+    return segments[segments.length - 1] || null;
+  }
+
+  function appendText(line) {
+    const s = curSeg();
+    if (s) s.text.push(line);
+  }
+
+  // Detect if a Q token is genuinely a new question
+  // (not a false positive like "2 marks" in body text)
+  let lastQn = 0;
+
+  function isPlausibleQuestion(tok) {
+    if (tok.n <= lastQn) return false;
+    // If we haven't seen any questions yet, accept anything 1-30
+    // If we have, allow gaps up to 10 (some papers jump e.g. 1-15 MCQ then 16 long)
+    if (lastQn > 0 && tok.n > lastQn + 10) return false;
+    // Reject lines where the "rest" is clearly not a question
+    const r = tok.rest.toLowerCase();
+    if (/^(marks?|moles?|electrons?|newtons?|joules?|watts?|kg|ms\b|nm|dm|cm|mm\b|hz|pa|na|kj|kw)$/i.test(r)) return false;
+    return true;
+  }
+
+  for (const tok of tokens) {
+    if (tok.type === 'Q') {
+      if (isPlausibleQuestion(tok)) {
+        lastQn = tok.n;
+        curQn = tok.n;
+        partStack = [];
+        openSeg(curQn, '');  // question-level segment (for whole-question mark or MCQ)
+        if (tok.rest) appendText(tok.rest);
+        continue;
+      }
+      // Fall through — treat as text
+    }
+
+    if (tok.type === 'PART' && curQn !== null) {
+      const depth = depthFor(tok.kind);
+      // Pop stack down to this depth
+      while (partStack.length > depth) partStack.pop();
+      partStack.push({ label: tok.label, kind: tok.kind, depth });
+      openSeg(curQn, currentLabel());
+      if (tok.rest) appendText(tok.rest);
       continue;
     }
 
-    // Part marker?
-    const pm = detectPartMarker(line);
-    if (pm && curQ) {
-      flushBufToActive();
-      // Determine depth based on kind and current stack
-      // Rules:
-      //   letter → depth 0 (always pop back to root)
-      //   roman  → depth 1 (must follow a letter; if no letter, depth 0)
-      //   arabic → depth 2 (must follow roman; else fallback)
-      let depth;
-      if (pm.kind === 'letter') {
-        depth = 0;
-      } else if (pm.kind === 'roman') {
-        const hasLetter = stack.some(s => s.kind === 'letter');
-        depth = hasLetter ? 1 : 0;
-      } else { // arabic
-        const hasRoman = stack.some(s => s.kind === 'roman');
-        const hasLetter = stack.some(s => s.kind === 'letter');
-        depth = hasRoman ? 2 : (hasLetter ? 1 : 0);
-      }
-      // Pop stack down to depth, then push this
-      while (stack.length > depth) stack.pop();
-      const entry = { label: pm.label, kind: pm.kind, depth, text: [] };
-      stack.push(entry);
-      curQ.partsFlat.push(entry);
-      buf = [pm.rest];
-      continue;
+    // TEXT (or rejected Q token) — append to current segment
+    if (curQn !== null) appendText(tok.text || tok.raw.trim());
+  }
+
+  return segments;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// STEP 4: Extract marks from a segment's text
+// ═══════════════════════════════════════════════════════════════════
+function extractMarks(textArr) {
+  const blob = textArr.join(' ');
+  // Look for [N] — prefer the LAST one which is typically the mark allocation
+  const allMatches = [...blob.matchAll(/\[(\d{1,2})\]/g)];
+  if (allMatches.length > 0) {
+    return parseInt(allMatches[allMatches.length - 1][1], 10);
+  }
+  // Also try "(N marks)"
+  const m2 = blob.match(/\((\d{1,2})\s*marks?\)/i);
+  if (m2) return parseInt(m2[1], 10);
+  return 0;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// STEP 5: Build question objects from segments
+// A "leaf" segment is one with no children (no later segment for same
+// question starts with a label that extends this one).
+// ═══════════════════════════════════════════════════════════════════
+function buildQuestions(segments) {
+  // Group by qn
+  const byQ = {};
+  for (const seg of segments) {
+    if (!byQ[seg.qn]) byQ[seg.qn] = [];
+    byQ[seg.qn].push(seg);
+  }
+
+  const questions = [];
+  for (const qn of Object.keys(byQ).map(Number).sort((a,b) => a-b)) {
+    const segs = byQ[qn];
+    // Find leaves: a segment is a leaf if no later segment's label starts with this one's label
+    // (and this one's label is non-empty, OR there's only one segment with empty label)
+    const leaves = [];
+    for (let i = 0; i < segs.length; i++) {
+      const s = segs[i];
+      const label = s.label;
+      const isParent = segs.some((other, j) =>
+        j !== i &&
+        other.label !== label &&
+        other.label.startsWith(label) &&
+        (label === '' || other.label[label.length] === ' ')
+      );
+      if (!isParent) leaves.push(s);
     }
 
-    // Regular content line — buffer it
-    buf.push(trimmed);
-  }
-  flushBufToActive();
-  if (curQ) {
-    emitLeavesForQuestion(curQ);
-    questions.push(curQ);
-  }
+    // For a leaf with empty label, it's the whole-question segment.
+    // If there are other leaves with non-empty labels, drop the empty-label one
+    // (its content is the question stem, already captured via appendText at part level)
+    const realLeaves = leaves.filter(l => l.label !== '').length > 0
+      ? leaves.filter(l => l.label !== '')
+      : leaves;
 
-  // Now fold text from each leaf's part chain into the .text field.
-  for (const q of questions) {
-    for (const leaf of q.leafParts) {
-      // Combine ancestor texts (for context)
-      const chain = leaf.ancestors || [];
-      leaf.fullText = (q.stem.join(' ') + ' ' + chain.map(a => a.text.join(' ')).join(' ')).toLowerCase();
-    }
-  }
+    // Build context text (all text across the question for topic tagging)
+    const allText = segs.flatMap(s => s.text).join(' ');
 
+    questions.push({
+      n: qn,
+      allText: allText.toLowerCase(),
+      parts: realLeaves.map(l => ({
+        label: l.label,
+        marks: extractMarks(l.text),
+        text: l.text.join(' ').toLowerCase(),
+      }))
+    });
+  }
   return questions;
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// TOPIC TAGGING
+// STEP 6: Topic tagging
 // ═══════════════════════════════════════════════════════════════════
 function scoreTopics(text, topicMap) {
   const scores = {};
-  const lower = text.toLowerCase();
   for (const [topic, kws] of Object.entries(topicMap)) {
     let s = 0;
     for (const [kw, w] of kws) {
-      // Whole-word/phrase match
-      const re = new RegExp('(?:^|[^a-z0-9])' + kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?:[^a-z0-9]|$)', 'g');
-      const matches = lower.match(re);
-      if (matches) s += matches.length * w;
+      const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const re = new RegExp('(?:^|[^a-z0-9])' + escaped + '(?:[^a-z0-9]|$)', 'g');
+      const hits = (text.match(re) || []).length;
+      s += hits * w;
     }
     if (s > 0) scores[topic] = s;
   }
   return scores;
 }
 
-function tagPart(text, topicMap) {
-  const scores = scoreTopics(text, topicMap);
-  const ranked = Object.entries(scores).sort((a,b) => b[1] - a[1]);
+function tagPart(partText, allQText, topicMap, defaultTopic) {
+  // Use part text + question context
+  const combined = partText + ' ' + allQText;
+  const scores = scoreTopics(combined, topicMap);
+  const ranked = Object.entries(scores).sort((a,b) => b[1]-a[1]);
   if (ranked.length === 0) {
-    return { primary: 'Practical Skills & Data Analysis', topics: ['Practical Skills & Data Analysis'], confidence: 0 };
+    return { primary: defaultTopic, topics: [defaultTopic], confidence: 0 };
   }
   const primary = ranked[0][0];
   const primaryScore = ranked[0][1];
   const topics = [primary];
-  // Add secondary if score >= 60% of primary AND >= 4
-  if (ranked.length > 1 && ranked[1][1] >= Math.max(4, primaryScore * 0.6)) {
+  // Secondary topic if score ≥ 60% of primary and ≥ 3
+  if (ranked.length > 1 && ranked[1][1] >= 3 && ranked[1][1] >= primaryScore * 0.6) {
     topics.push(ranked[1][0]);
   }
   return { primary, topics, confidence: primaryScore };
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// EMIT — build the JS assignment
+// STEP 7: Emit JS snippet
 // ═══════════════════════════════════════════════════════════════════
+function q(s) { return `'${s.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}'`; }
+
 function emit(subject, paperKey, year, questions) {
-  const lines = [`BAKED_TEMPLATES['${subject}']['${paperKey}'][${year}] = [`];
-  for (const q of questions) {
-    if (q.leafParts.length === 1 && q.leafParts[0].label === '') {
-      const p = q.leafParts[0];
-      const topicsStr = p.tags.topics.map(t => `'${t.replace(/'/g, "\\'")}'`).join(', ');
-      lines.push(`  { n:${q.n}, topic:'${p.tags.primary.replace(/'/g,"\\'")}', subtopic:'', parts:[{ l:'', topic:'${p.tags.primary.replace(/'/g,"\\'")}', topics:[${topicsStr}], subtopic:'', marks:${p.marks} }] },`);
+  const lines = [`BAKED_TEMPLATES[${q(subject)}][${q(paperKey)}][${year}] = [`];
+  for (const qObj of questions) {
+    if (qObj.parts.length === 1 && qObj.parts[0].label === '') {
+      const p = qObj.parts[0];
+      const topicsStr = p.tag.topics.map(q).join(', ');
+      lines.push(`  { n:${qObj.n}, topic:${q(p.tag.primary)}, subtopic:'', parts:[{ l:'', topic:${q(p.tag.primary)}, topics:[${topicsStr}], subtopic:'', marks:${p.marks} }] },`);
     } else {
-      // Primary topic of question = most common topic across leaves (by mark weight)
+      // Question-level primary = topic with most marks
       const tally = {};
-      for (const p of q.leafParts) {
-        tally[p.tags.primary] = (tally[p.tags.primary] || 0) + p.marks;
+      for (const p of qObj.parts) {
+        tally[p.tag.primary] = (tally[p.tag.primary] || 0) + p.marks;
       }
-      const qPrimary = Object.entries(tally).sort((a,b)=>b[1]-a[1])[0][0];
-      lines.push(`  { n:${q.n}, topic:'${qPrimary.replace(/'/g,"\\'")}', subtopic:'', parts:[`);
-      for (const p of q.leafParts) {
-        const topicsStr = p.tags.topics.map(t => `'${t.replace(/'/g, "\\'")}'`).join(', ');
-        lines.push(`    { l:'${p.label}', topic:'${p.tags.primary.replace(/'/g,"\\'")}', topics:[${topicsStr}], subtopic:'', marks:${p.marks} },`);
+      const qPrimary = Object.entries(tally).sort((a,b) => b[1]-a[1])[0][0];
+      lines.push(`  { n:${qObj.n}, topic:${q(qPrimary)}, subtopic:'', parts:[`);
+      for (const p of qObj.parts) {
+        const topicsStr = p.tag.topics.map(q).join(', ');
+        lines.push(`    { l:${q(p.label)}, topic:${q(p.tag.primary)}, topics:[${topicsStr}], subtopic:'', marks:${p.marks} },`);
       }
       lines.push(`  ]},`);
     }
@@ -449,55 +716,86 @@ function emit(subject, paperKey, year, questions) {
 // MAIN
 // ═══════════════════════════════════════════════════════════════════
 function run() {
-  const subject = document.getElementById('subject').value;
-  const paperKey = document.getElementById('paper').value;
-  const year = parseInt(document.getElementById('year').value, 10);
-  const raw = document.getElementById('input').value;
-  if (!raw.trim()) {
-    document.getElementById('output').textContent = '// Paste QP text first';
-    return;
-  }
+  const out = document.getElementById('output');
+  const statsEl = document.getElementById('stats');
+  const warnsEl = document.getElementById('warns');
+  const debugEl = document.getElementById('debug');
+  const debugBlock = document.getElementById('debug-block');
 
-  const cleaned = cleanText(raw);
-  const questions = parsePaper(cleaned);
-  const topicMap = SUBJECTS[subject].topics;
+  try {
+    const subject = document.getElementById('subject').value;
+    const paperKey = document.getElementById('paper').value;
+    const year = parseInt(document.getElementById('year').value, 10);
+    const raw = document.getElementById('input').value;
 
-  // Tag each leaf
-  const warnings = [];
-  let totalParts = 0, totalMarks = 0;
-  for (const q of questions) {
-    for (const p of q.leafParts) {
-      p.tags = tagPart(p.fullText, topicMap);
-      totalParts++;
-      totalMarks += p.marks;
-      if (p.tags.confidence < 4) {
-        warnings.push({ q: q.n, label: p.label, marks: p.marks, tag: p.tags.primary, conf: p.tags.confidence });
-      }
-      if (p.marks === 0) {
-        warnings.push({ q: q.n, label: p.label, marks: 0, tag: 'MARKS', conf: 'missing', noMarks: true });
+    if (!raw.trim()) {
+      out.textContent = '// Paste QP text first';
+      return;
+    }
+
+    const topicMap = SUBJECTS[subject].topics;
+    const topicNames = Object.keys(topicMap);
+    const defaultTopic = topicNames[0];
+
+    // Pipeline
+    const cleaned = cleanText(raw);
+    const tokens = tokenise(cleaned);
+    const segs = segment(tokens);
+    const questions = buildQuestions(segs);
+
+    if (questions.length === 0) {
+      out.textContent = '// No questions detected. Check input format — question numbers must appear at the start of lines with low indentation (e.g. "16 (a) text [2]").';
+      statsEl.innerHTML = '<span class="stat er">⚠ 0 questions detected</span>';
+      // Show debug
+      debugEl.textContent = 'TOKENS:\n' + tokens.slice(0,40).map(t => JSON.stringify(t)).join('\n');
+      debugBlock.style.display = '';
+      return;
+    }
+
+    // Tag all parts
+    const warnings = [];
+    let totalParts = 0, totalMarks = 0;
+    for (const qObj of questions) {
+      for (const p of qObj.parts) {
+        p.tag = tagPart(p.text, qObj.allText, topicMap, defaultTopic);
+        totalParts++;
+        totalMarks += p.marks;
+        if (p.tag.confidence < 3) {
+          warnings.push({ q: qObj.n, label: p.label, marks: p.marks, tag: p.tag.primary, conf: p.tag.confidence });
+        }
+        if (p.marks === 0) {
+          warnings.push({ q: qObj.n, label: p.label, noMarks: true });
+        }
       }
     }
-  }
 
-  const out = emit(subject, paperKey, year, questions);
-  document.getElementById('output').textContent = out;
+    out.textContent = emit(subject, paperKey, year, questions);
 
-  // Diagnostics
-  const stats = document.getElementById('stats');
-  stats.innerHTML = `
-    <span class="stat">Questions: <strong>${questions.length}</strong></span>
-    <span class="stat">Parts: <strong>${totalParts}</strong></span>
-    <span class="stat">Total marks: <strong>${totalMarks}</strong></span>
-    <span class="stat ${warnings.length === 0 ? 'ok' : ''}">${warnings.length === 0 ? '✓ No warnings' : `⚠ ${warnings.length} warning(s)`}</span>
-  `;
-  const warnDiv = document.getElementById('warns');
-  if (warnings.length === 0) {
-    warnDiv.innerHTML = '';
-  } else {
-    warnDiv.innerHTML = `<div class="warn-list">${warnings.map(w => {
-      if (w.noMarks) return `<div class="lo">⚠ Q${w.q}${w.label?` (${w.label})`:''} — NO MARKS DETECTED</div>`;
-      return `<div class="lo">Low confidence: Q${w.q}${w.label?` (${w.label})`:''} [${w.marks}m] → tagged "${w.tag}" (score ${w.conf})</div>`;
-    }).join('')}</div>`;
+    // Stats
+    statsEl.innerHTML = `
+      <span class="stat">Questions: <strong>${questions.length}</strong></span>
+      <span class="stat">Parts: <strong>${totalParts}</strong></span>
+      <span class="stat">Total marks: <strong>${totalMarks}</strong></span>
+      <span class="stat ${warnings.length === 0 ? 'ok' : ''}">${warnings.length === 0 ? '✓ No warnings' : `⚠ ${warnings.length} warning(s)`}</span>
+    `;
+
+    const uniqueWarns = [...new Map(warnings.map(w => [JSON.stringify(w), w])).values()];
+    warnsEl.innerHTML = uniqueWarns.length ? `<div class="warn-list">${uniqueWarns.map(w =>
+      w.noMarks
+        ? `<div class="lo">⚠ Q${w.q}${w.label ? ' ('+w.label+')' : ''} — no marks detected</div>`
+        : `<div class="lo">Low confidence: Q${w.q}${w.label ? ' ('+w.label+')' : ''} [${w.marks}m] → "${w.tag}" (score ${w.conf})</div>`
+    ).join('')}</div>` : '';
+
+    // Debug
+    debugEl.textContent = questions.map(q =>
+      `Q${q.n}: ${q.parts.map(p => `[${p.label||'whole'}](${p.marks}m)`).join(', ')}`
+    ).join('\n');
+    debugBlock.style.display = '';
+
+  } catch(e) {
+    out.textContent = '// Error: ' + e.message + '\n\n// Stack:\n// ' + (e.stack||'').split('\n').join('\n// ');
+    statsEl.innerHTML = `<span class="stat er">Error: ${e.message}</span>`;
+    debugBlock.style.display = '';
   }
 }
 
@@ -508,6 +806,14 @@ function copyOut() {
     const old = btn.textContent;
     btn.textContent = '✓ Copied';
     setTimeout(() => btn.textContent = old, 1200);
+  }).catch(() => {
+    // fallback
+    const ta = document.getElementById('output');
+    const range = document.createRange();
+    range.selectNodeContents(ta);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(range);
+    document.execCommand('copy');
   });
 }
 
@@ -516,6 +822,8 @@ function clearAll() {
   document.getElementById('output').textContent = '// Output will appear here after pressing Parse →';
   document.getElementById('stats').innerHTML = '<span class="stat">Press Parse to see results</span>';
   document.getElementById('warns').innerHTML = '';
+  document.getElementById('debug').textContent = '';
+  document.getElementById('debug-block').style.display = 'none';
 }
 </script>
 </body>
