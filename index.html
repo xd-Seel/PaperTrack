@@ -4073,7 +4073,7 @@ function openPaperAvgDetail(sub, pk) {
   document.getElementById('review-modal').classList.add('open');
 }
 
-
+function openReview(id) {
   const db = getDB();
   const r = db.records.find(x => x.id === id);
   if (!r) return;
