@@ -3620,9 +3620,9 @@ function getWeakestTopicData() {
     });
   });
   const entries = Object.values(topicMap)
-    .filter(t => t.total >= 4) // need meaningful sample
-    .map(t => ({ ...t, pct: Math.round(t.scored / t.total * 100) }))
-    .sort((a, b) => a.pct - b.pct);
+    .filter(t => t.appearances >= 2 && t.total >= 6)
+    .map(t => ({ ...t, pct: Math.round(t.scored / t.total * 100), impact: Math.max(0, 0.7 - t.scored / t.total) * t.total }))
+    .sort((a, b) => b.impact - a.impact);
   return entries.length > 0 ? entries[0] : null;
 }
 
@@ -3666,14 +3666,16 @@ function calcSubjectProjectedGrade(sub) {
 
   paperKeys.forEach(pk => {
     // Last 3 of this paper type, most recent first
-    const pkRecs = recs.filter(r => r.paperKey === pk).sort((a, b) => b.id - a.id).slice(0, 3);
-    if (pkRecs.length === 0) return;
+    const allPkRecs = recs.filter(r => r.paperKey === pk).sort((a, b) => b.id - a.id);
+    if (allPkRecs.length === 0) return;
+    // Average uses last 3 attempts for recency, but show real total count
+    const pkRecs = allPkRecs.slice(0, 3);
     const avgScored = pkRecs.reduce((s, r) => s + (r.totalScored || 0), 0) / pkRecs.length;
     const avgAvail  = pkRecs.reduce((s, r) => s + (r.totalAvail  || 0), 0) / pkRecs.length;
     const pct = avgAvail > 0 ? Math.round(avgScored / avgAvail * 100) : null;
     const boundary = getTypicalBoundary(sub, pk);
     if (boundary) boundaryCount++;
-    paperData[pk] = { avgScored, avgAvail, pct, boundary, count: pkRecs.length };
+    paperData[pk] = { avgScored, avgAvail, pct, boundary, count: allPkRecs.length };
   });
 
   // Grade per paper type using typical boundaries
@@ -4037,7 +4039,41 @@ function deletePaper(id) {
 // ═══════════════════════════════════════════════════
 //  REVIEW MODAL
 // ═══════════════════════════════════════════════════
-function openReview(id) {
+function openPaperAvgDetail(sub, pk) {
+  const db = getDB();
+  const cat = SUBJECT_CATALOG[sub] || PAPERS[sub];
+  const color = cat?.color || '#888';
+  const subName = cat?.name || sub;
+  const recs = db.records
+    .filter(r => r.subject === sub && r.paperKey === pk)
+    .sort((a, b) => b.id - a.id);
+
+  if (recs.length === 0) return;
+
+  let rowsHtml = recs.map(r => {
+    const pct = r.totalAvail > 0 ? Math.round(r.totalScored / r.totalAvail * 100) : 0;
+    const pctColor = pct >= 70 ? 'var(--green)' : pct >= 50 ? 'var(--orange)' : 'var(--red)';
+    const dateStr = r.date ? new Date(r.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+    return `<tr style="cursor:pointer" onclick="closeModal();openReview(${r.id})">
+      <td style="font-family:var(--mono);font-size:12px;color:var(--text2)">${r.year}</td>
+      <td style="font-size:12px;color:var(--text3)">${dateStr}</td>
+      <td style="font-family:var(--mono);font-size:12px;text-align:center">${r.totalScored}/${r.totalAvail}</td>
+      <td style="font-family:var(--mono);font-size:13px;font-weight:600;color:${pctColor};text-align:center">${pct}%</td>
+      <td style="font-family:var(--mono);font-size:12px;color:${pctColor};text-align:center">${r.grade || '—'}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('rm-title').innerHTML = `${_esc(subName)} <span style="color:${color}">${_esc(pk)}</span>`;
+  document.getElementById('rm-content').innerHTML = `
+    <p style="font-size:.8rem;color:var(--text3);margin-bottom:12px">Click a row to see the full question breakdown.</p>
+    <table class="q-table">
+      <thead><tr><th>Year</th><th>Date</th><th style="text-align:center">Marks</th><th style="text-align:center">Score</th><th style="text-align:center">Grade</th></tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>`;
+  document.getElementById('review-modal').classList.add('open');
+}
+
+
   const db = getDB();
   const r = db.records.find(x => x.id === id);
   if (!r) return;
@@ -4162,7 +4198,18 @@ function _buildTopicMap(records) {
   });
   return Object.values(topicMap)
     .map(t => ({ ...t, pct: t.total > 0 ? Math.round(t.scored / t.total * 100) : 0 }))
-    .sort((a, b) => a.pct - b.pct);
+    // Impact score: how many marks could be gained by improving to 70% target.
+    // Filtered to topics with enough data (≥2 appearances AND ≥6 weighted marks).
+    .map(t => ({ ...t, impact: Math.max(0, 0.7 - t.scored / Math.max(t.total, 0.01)) * t.total }))
+    .sort((a, b) => {
+      const aValid = a.appearances >= 2 && a.total >= 6;
+      const bValid = b.appearances >= 2 && b.total >= 6;
+      if (aValid && !bValid) return -1;
+      if (!aValid && bValid) return 1;
+      // Sort valid topics by impact (highest improvement potential first for focus topics)
+      // but lowest pct first (weakest first) — blend: impact descending
+      return b.impact - a.impact;
+    });
 }
 
 function renderAnalytics() {
@@ -4186,8 +4233,9 @@ function renderAnalytics() {
   const topics = _buildTopicMap(filteredRecords);
 
   // ── Stat values ───────────────────────────────────────
-  const weakTopic   = topics.filter(t => t.total >= 4)[0] || topics[0];
-  const strongTopic = [...topics].reverse().find(t => t.total >= 4) || topics[topics.length - 1];
+  const validTopics = topics.filter(t => t.appearances >= 2 && t.total >= 6);
+  const weakTopic   = validTopics[0] || topics[0];
+  const strongTopic = [...validTopics].sort((a,b) => b.pct - a.pct)[0] || topics[topics.length - 1];
   const totalScored = filteredRecords.reduce((s, r) => s + (r.totalScored || 0), 0);
   const totalAvail  = filteredRecords.reduce((s, r) => s + (r.totalAvail  || 0), 0);
   const overallPct  = totalAvail > 0 ? Math.round(totalScored / totalAvail * 100) : null;
@@ -4287,7 +4335,7 @@ function renderAnalytics() {
   }
 
   // ── Revision plan ─────────────────────────────────────
-  const planTopics = topics.filter(t => t.total >= 4).slice(0, 3);
+  const planTopics = topics.filter(t => t.appearances >= 2 && t.total >= 6).slice(0, 3);
   if (planTopics.length > 0) {
     const totalMins = planTopics.reduce((s, t) => s + Math.round((100 - t.pct) / 10) * 15, 0);
     const planHrs = Math.floor(totalMins / 60);
